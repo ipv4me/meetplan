@@ -238,11 +238,49 @@ img.avatar { object-fit: cover; }
 .request-card .text-muted.small {
   overflow-wrap: anywhere;
 }
-.request-actions { display: flex; flex-direction: column; gap: 6px; }
+.request-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  flex-shrink: 0;
+}
 .request-actions-row {
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/* шапка чужого календаря */
+.user-calendar-head {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-areas:
+    "avatar info"
+    "btn btn";
+  gap: 8px 12px;
+  align-items: start;
+}
+.user-calendar-head > .avatar { grid-area: avatar; }
+.user-calendar-head > .min-w-0 {
+  grid-area: info;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.user-calendar-head > .btn {
+  grid-area: btn;
+  margin-left: 0 !important;
+  width: 100%;
+  justify-self: stretch;
+}
+@media (min-width: 768px) {
+  .user-calendar-head {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .user-calendar-head > .btn {
+    width: auto;
+    margin-left: auto !important;
+    flex-shrink: 0;
+  }
 }
 .status-badge { font-weight: 600; }
 
@@ -306,9 +344,10 @@ img.avatar { object-fit: cover; }
 }
 .bottom-nav a {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; color: #9ca3af; text-decoration: none; font-size: 1.2rem;
+  gap: 2px; color: #9ca3af; text-decoration: none; font-size: 1.1rem;
+  min-width: 0; padding: 0 2px;
 }
-.bottom-nav a small { font-size: .68rem; }
+.bottom-nav a small { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .bottom-nav a.active { color: var(--brand); }
 
 /* FAB */
@@ -322,38 +361,42 @@ img.avatar { object-fit: cover; }
 }
 
 /* ===================== АДАПТИВ ===================== */
+@media (max-width: 991.98px) {
+  .request-card {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    grid-template-areas:
+      "avatar main"
+      "actions actions";
+    align-items: start;
+    gap: 8px 12px;
+  }
+  .request-card > .avatar { grid-area: avatar; margin-top: 2px; }
+  .request-main {
+    grid-area: main;
+    flex-basis: auto;
+    min-width: 0;
+  }
+  .request-actions {
+    grid-area: actions;
+    flex: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    padding-left: 0;
+    margin-top: 4px;
+    gap: 8px;
+  }
+  .request-actions .btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+}
+
 @media (max-width: 767.98px) {
   .main-area { margin-left: 0; }
   .content { padding: 12px; padding-bottom: calc(var(--bottom-h) + 20px); }
   .flash-area { padding: 0 12px; }
-  .request-card {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-  .request-card .avatar {
-    margin-top: 2px;
-  }
-  .request-main {
-    flex-basis: calc(100% - 52px);
-  }
-  .request-actions {
-    flex: 1 1 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    padding-left: 52px;
-  }
-  .request-actions .btn {
-    flex: 1 1 140px;
-    min-width: 0;
-  }
-  .user-calendar-head {
-    flex-wrap: wrap;
-  }
-  .user-calendar-head .btn {
-    flex: 1 1 100%;
-    margin-left: 52px !important;
-  }
   /* тулбар календаря: аккуратно в три строки по центру */
   .fc .fc-toolbar.fc-header-toolbar {
     flex-direction: column; align-items: center; gap: 10px; margin-bottom: 12px;

@@ -37,17 +37,23 @@ def status_label(status_id):
     return {1: "Ожидает подтверждения", 2: "Подтверждено", 3: "Отклонено"}.get(status_id, "")
 
 
-def events_for_user(user_id):
+def events_for_user(user_id, viewer_id=None):
     """Список событий пользователя в формате FullCalendar.
 
     Включает личные события пользователя и встречи, в которых он участвует.
+    При просмотре чужого календаря (viewer_id != user_id) личные дела
+    показываются как «Занят» без деталей.
     """
     result = []
+    is_self = viewer_id is None or viewer_id == user_id
 
     # Личные события, созданные пользователем
     personal = Event.query.filter_by(created_by=user_id, event_type="personal").all()
     for ev in personal:
-        result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=True))
+        if is_self:
+            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=True))
+        else:
+            result.append(_to_fc_busy(ev))
 
     # Встречи, где пользователь — участник.
     # Цвет/статус берём из запроса на встречу (общий для обоих участников),
@@ -83,6 +89,28 @@ def _to_fc(ev, status_id, is_owner=False):
             "statusId": status_id,
             "statusLabel": status_label(status_id) if ev.event_type == "meeting" else "Личное событие",
             "isOwner": is_owner,
+            "accent": border,
+        },
+    }
+
+
+def _to_fc_busy(ev):
+    """Личное событие для чужого календаря — только занятость, без деталей."""
+    bg, border, text = STYLE_PERSONAL
+    return {
+        "id": ev.id,
+        "title": "Занят",
+        "start": ev.start_datetime.isoformat(),
+        "end": ev.end_datetime.isoformat(),
+        "backgroundColor": bg,
+        "borderColor": border,
+        "textColor": text,
+        "extendedProps": {
+            "description": "",
+            "type": "busy",
+            "statusId": STATUS_CONFIRMED,
+            "statusLabel": "Занят",
+            "isOwner": False,
             "accent": border,
         },
     }

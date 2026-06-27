@@ -11,7 +11,26 @@ document.addEventListener("DOMContentLoaded", function () {
   initThemeToggle();
   initTasks();
   initWidgetMeetingForm();
+  initMeetingCalendarLink();
 });
+
+/* ---------- Ссылка на календарь участника (форма встречи) ---------- */
+function initMeetingCalendarLink() {
+  const select = document.getElementById("meetingToUser");
+  const link = document.getElementById("viewUserCalendarLink");
+  if (!select || !link) return;
+  function update() {
+    const id = select.value;
+    if (id) {
+      link.href = "/users/" + id + "/calendar";
+      link.classList.remove("d-none");
+    } else {
+      link.classList.add("d-none");
+    }
+  }
+  select.addEventListener("change", update);
+  update();
+}
 
 /* ---------- Виджет «Создание встречи» ---------- */
 function initWidgetMeetingForm() {
@@ -239,7 +258,7 @@ function initCalendar(el) {
 
 /* ---------- Детали события ---------- */
 function statusClass(type, statusId) {
-  if (type === "personal") return "st-personal";
+  if (type === "personal" || type === "busy") return "st-personal";
   if (statusId === 2) return "st-confirmed";
   if (statusId === 3) return "st-rejected";
   return "st-pending";
@@ -249,7 +268,12 @@ function showEventDetails(event) {
   activeEvent = event;
   const props = event.extendedProps;
   document.getElementById("evTitle").textContent = event.title;
-  document.getElementById("evDesc").textContent = props.description || "Без описания";
+  const descEl = document.getElementById("evDesc");
+  if (props.type === "busy") {
+    descEl.textContent = "Участник занят в это время.";
+  } else {
+    descEl.textContent = props.description || "Без описания";
+  }
 
   const fmt = { hour: "2-digit", minute: "2-digit" };
   const dateStr = event.start.toLocaleDateString("ru-RU");

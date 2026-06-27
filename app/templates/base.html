@@ -24,7 +24,8 @@
 {% set nav = [
   ('main.calendar', 'bi-calendar3', 'Календарь'),
   ('main.requests_page', 'bi-inbox', 'Запросы'),
-  ('main.tasks', 'bi-check2-square', 'Мои дела'),
+  ('main.users', 'bi-people', 'Участники'),
+  ('main.tasks', 'bi-check2-square', 'Дела'),
   ('main.profile', 'bi-person', 'Профиль')
 ] %}
 
@@ -104,7 +105,7 @@
   <!-- ===== Нижняя навигация (телефон) ===== -->
   <nav class="bottom-nav d-md-none">
     {% for endpoint, icon, label in nav %}
-    <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint %}active{% endif %}">
+    <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint or (endpoint == 'main.users' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
       <span class="position-relative">
         <i class="bi {{ icon }}"></i>
         {% if endpoint == 'main.requests_page' and pending_badge %}<span class="dot">{{ pending_badge }}</span>{% endif %}
@@ -134,13 +135,12 @@
     </div>
     <nav class="sidebar-nav">
       {% for endpoint, icon, label in nav %}
-      <a href="{{ url_for(endpoint) }}" class="nav-link {% if request.endpoint == endpoint %}active{% endif %}">
+      <a href="{{ url_for(endpoint) }}" class="nav-link {% if request.endpoint == endpoint or (endpoint == 'main.users' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
         <i class="bi {{ icon }}"></i> <span>{{ label }}</span>
         {% if endpoint == 'main.requests_page' and pending_badge %}<span class="badge bg-danger ms-auto">{{ pending_badge }}</span>{% endif %}
       </a>
       {% endfor %}
       <a href="{{ url_for('main.new_meeting') }}" class="nav-link"><i class="bi bi-plus-circle"></i> <span>Создать встречу</span></a>
-      <a href="{{ url_for('main.users') }}" class="nav-link"><i class="bi bi-people"></i> <span>Участники</span></a>
       <a href="{{ url_for('main.notifications') }}" class="nav-link"><i class="bi bi-bell"></i> <span>Уведомления</span></a>
       <a href="{{ url_for('main.settings') }}" class="nav-link"><i class="bi bi-gear"></i> <span>Настройки</span></a>
     </nav>

@@ -106,7 +106,7 @@ def api_user_events(user_id):
     user = db.session.get(User, user_id)
     if user is None:
         abort(404)
-    return jsonify(events_for_user(user.id))
+    return jsonify(events_for_user(user.id, viewer_id=current_user.id))
 
 
 @bp.route("/api/events", methods=["POST"])
