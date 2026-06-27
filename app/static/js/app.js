@@ -406,16 +406,38 @@ function renderEventContent(arg) {
 }
 
 /* карточка события для вида «Список» */
+function calendarTz() {
+  if (calendar) {
+    const tz = calendar.getOption("timeZone");
+    if (tz && tz !== "local") return tz;
+  }
+  const el = document.getElementById("calendar");
+  const ds = el && el.dataset.timezone;
+  return ds || undefined;
+}
+
+function formatInCalendarTz(date, options) {
+  if (!date) return "";
+  const tz = calendarTz();
+  const opts = Object.assign({}, options);
+  if (tz) opts.timeZone = tz;
+  return new Intl.DateTimeFormat("ru-RU", opts).format(date);
+}
+
 function formatListDate(date) {
-  return date.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "long" });
+  return formatInCalendarTz(date, {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+  });
 }
 
 function formatListTimeRange(event) {
-  const fmt = { hour: "2-digit", minute: "2-digit", hour12: false };
   if (!event.start) return "";
-  const start = event.start.toLocaleTimeString("ru-RU", fmt);
+  const fmt = { hour: "2-digit", minute: "2-digit", hour12: false };
+  const start = formatInCalendarTz(event.start, fmt);
   if (!event.end) return start;
-  const end = event.end.toLocaleTimeString("ru-RU", fmt);
+  const end = formatInCalendarTz(event.end, fmt);
   return start + " – " + end;
 }
 
@@ -588,10 +610,10 @@ function showEventDetails(event) {
     descEl.textContent = props.description || "Без описания";
   }
 
-  const fmt = { hour: "2-digit", minute: "2-digit" };
-  const dateStr = event.start.toLocaleDateString("ru-RU");
-  const timeStr = event.start.toLocaleTimeString("ru-RU", fmt) +
-    (event.end ? " – " + event.end.toLocaleTimeString("ru-RU", fmt) : "");
+  const dateStr = formatInCalendarTz(event.start, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeFmt = { hour: "2-digit", minute: "2-digit", hour12: false };
+  const timeStr = formatInCalendarTz(event.start, timeFmt) +
+    (event.end ? " – " + formatInCalendarTz(event.end, timeFmt) : "");
   document.getElementById("evTime").textContent = dateStr + ", " + timeStr;
 
   const badge = document.getElementById("evStatus");

@@ -282,6 +282,22 @@ def test_calendar_events_utc_format(client, app):
     assert events[0]["start"].endswith("Z")
 
 
+def test_task_calendar_matches_due_time(client, app):
+    _register(client, "tasktz", "tasktz@test.com")
+    _login(client, "tasktz@test.com")
+    client.post("/api/tasks", json={
+        "title": "Walk",
+        "due_date": "2026-06-27",
+        "due_time": "20:00",
+    })
+    r = client.get("/api/events")
+    tasks = [e for e in r.get_json() if e.get("extendedProps", {}).get("type") == "task"]
+    assert len(tasks) == 1
+    assert tasks[0]["start"] == "2026-06-27T20:00:00"
+    assert not tasks[0]["start"].endswith("Z")
+    assert tasks[0]["end"] == "2026-06-27T21:00:00"
+
+
 def test_task_update(client, app):
     _register(client, "tuser", "t@test.com")
     _login(client, "t@test.com")

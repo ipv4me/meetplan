@@ -4,7 +4,7 @@ from datetime import datetime, time as dt_time, timedelta
 
 from app import db
 from app.models import Event, EventParticipant, MeetingRequest, Task, User
-from app.time_utils import utc_iso, task_block_utc, user_timezone
+from app.time_utils import utc_iso, task_block_local_iso, user_timezone
 
 # Насыщенные цвета (легенда, левая полоса события)
 COLOR_PERSONAL = "#f59e0b"   # личные дела — жёлтый
@@ -82,7 +82,7 @@ def events_for_user(user_id, viewer_id=None):
 
 
 def _tasks_to_fc(user):
-    """Задачи с датой — блоки в личном календаре (UTC для FullCalendar)."""
+    """Задачи с датой — блоки в календаре (локальное wall-clock время, без UTC-сдвига)."""
     items = []
     tasks = (
         Task.query
@@ -91,13 +91,13 @@ def _tasks_to_fc(user):
         .all()
     )
     for task in tasks:
-        utc_start, utc_end = task_block_utc(task, user)
+        local_start, local_end = task_block_local_iso(task)
         bg, border, text = STYLE_TASK
         items.append({
             "id": f"task-{task.id}",
             "title": task.title,
-            "start": utc_iso(utc_start),
-            "end": utc_iso(utc_end),
+            "start": local_start,
+            "end": local_end,
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,

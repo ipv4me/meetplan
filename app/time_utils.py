@@ -39,11 +39,20 @@ def local_today(user):
 
 
 def task_block_utc(task, user):
-    """Локальные due_date/due_time задачи → интервал UTC."""
+    """Локальные due_date/due_time задачи → интервал UTC (для конфликтов с событиями в БД)."""
     start_t = task.due_time or dt_time(9, 0)
     local_start = datetime.combine(task.due_date, start_t)
     utc_start = local_to_utc(local_start, user_timezone(user))
     return utc_start, utc_start + timedelta(hours=1)
+
+
+def task_block_local_iso(task):
+    """Локальные due_date/due_time → ISO без Z для FullCalendar (wall-clock в поясе пользователя)."""
+    start_t = task.due_time or dt_time(9, 0)
+    local_start = datetime.combine(task.due_date, start_t)
+    local_end = local_start + timedelta(hours=1)
+    fmt = "%Y-%m-%dT%H:%M:%S"
+    return local_start.strftime(fmt), local_end.strftime(fmt)
 
 
 def timezone_label(name):
