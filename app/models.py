@@ -29,6 +29,7 @@ class User(UserMixin, db.Model):
     avatar_mimetype = db.Column(db.String(64))
     organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"))
     role = db.Column(db.String(16), default="member", nullable=False)
+    timezone = db.Column(db.String(64), default="Europe/Moscow", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     organization = db.relationship("Organization")
@@ -150,14 +151,3 @@ class Task(db.Model):
 
     def __repr__(self):
         return f"<Task {self.title} done={self.done}>"
-
-
-class UserAvailability(db.Model):
-    __tablename__ = "user_availability"
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    start_time = db.Column(db.Time, nullable=False)
-    end_time = db.Column(db.Time, nullable=False)
-    is_busy = db.Column(db.Boolean, default=True)

@@ -1,10 +1,10 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app import db
 from app.models import User, Organization
 from app.forms import RegistrationForm, LoginForm
-from app.helpers import rate_limit
+from app.helpers import rate_limit, apply_bootstrap_admin_role, record_failed_login
 from app.routes import bp
 
 
@@ -20,8 +20,10 @@ def register():
             email=form.email.data,
             organization_id=org.id if org else None,
             role="member",
+            timezone=current_app.config.get("DEFAULT_USER_TIMEZONE", "Europe/Moscow"),
         )
         user.set_password(form.password.data)
+        apply_bootstrap_admin_role(user)
         db.session.add(user)
         db.session.commit()
         flash("Регистрация прошла успешно. Теперь войдите.", "success")
@@ -40,8 +42,11 @@ def login():
             logout_user()
         user = User.query.filter_by(email=form.email.data).first()
         if user is None or not user.check_password(form.password.data):
+            record_failed_login("login")
             flash("Неверный email или пароль.", "danger")
             return redirect(url_for("main.login"))
+        apply_bootstrap_admin_role(user)
+        db.session.commit()
         login_user(user, remember=form.remember.data)
         return redirect(url_for("main.calendar"))
     return render_template("login.html", form=form)

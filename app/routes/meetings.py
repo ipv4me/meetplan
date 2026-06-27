@@ -6,8 +6,9 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Event, MeetingRequest, EventParticipant
 from app.forms import MeetingForm
-from app.utils import combine, status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
-from app.helpers import pending_count, meeting_user_choices, create_meeting_event
+from app.utils import status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
+from app.helpers import pending_count, meeting_user_choices, create_meeting_event, valid_colleague_ids, REQUESTS_PER_PAGE
+from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime, format_dt
 from app.services.scheduling import find_conflicts
 from app.routes import bp
 
@@ -41,8 +42,12 @@ def new_meeting():
         if form.to_user.data == current_user.id:
             flash("Нельзя назначить встречу самому себе.", "danger")
             return redirect(url_for("main.new_meeting"))
-        start = combine(form.date.data, form.start_time.data)
-        end = combine(form.date.data, form.end_time.data)
+        if form.to_user.data not in valid_colleague_ids():
+            flash("Выберите участника из вашей организации.", "danger")
+            return redirect(url_for("main.new_meeting"))
+        start, end = combine_user_meeting(
+            form.date.data, form.start_time.data, form.end_time.data, current_user,
+        )
         conflicts = find_conflicts([current_user.id, form.to_user.data], start, end)
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
@@ -70,15 +75,22 @@ def edit_meeting(event_id):
     form = MeetingForm()
     form.to_user.choices = meeting_user_choices()
     if request.method == "GET":
+        tz = user_timezone(current_user)
+        start_local = utc_to_local(ev.start_datetime, tz)
+        end_local = utc_to_local(ev.end_datetime, tz)
         form.to_user.data = ev.request.to_user_id if ev.request else None
         form.title.data = ev.title
         form.description.data = ev.description
-        form.date.data = ev.start_datetime.date()
-        form.start_time.data = ev.start_datetime.time()
-        form.end_time.data = ev.end_datetime.time()
+        form.date.data = start_local.date()
+        form.start_time.data = start_local.time()
+        form.end_time.data = end_local.time()
     if form.validate_on_submit():
-        start = combine(form.date.data, form.start_time.data)
-        end = combine(form.date.data, form.end_time.data)
+        if form.to_user.data not in valid_colleague_ids():
+            flash("Выберите участника из вашей организации.", "danger")
+            return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+        start, end = combine_user_meeting(
+            form.date.data, form.start_time.data, form.end_time.data, current_user,
+        )
         conflicts = find_conflicts(
             [current_user.id, form.to_user.data], start, end, exclude_event_id=ev.id,
         )
@@ -108,8 +120,8 @@ def api_check_conflicts():
     data = request.get_json() or {}
     try:
         to_user = int(data["to_user"])
-        start = datetime.fromisoformat(data["start"])
-        end = datetime.fromisoformat(data["end"])
+        start = parse_client_datetime(data["start"], current_user)
+        end = parse_client_datetime(data["end"], current_user)
         exclude = data.get("exclude_event_id")
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
@@ -117,6 +129,8 @@ def api_check_conflicts():
         return jsonify({"ok": False, "error": "Некорректный интервал"}), 400
     if to_user == current_user.id:
         return jsonify({"ok": False, "error": "Нельзя назначить встречу самому себе"}), 400
+    if to_user not in valid_colleague_ids():
+        return jsonify({"ok": False, "error": "Участник не из вашей организации"}), 400
     conflicts = find_conflicts(
         [current_user.id, to_user], start, end,
         exclude_event_id=int(exclude) if exclude else None,
@@ -145,22 +159,26 @@ def api_cancel_meeting(event_id):
 @bp.route("/requests")
 @login_required
 def requests_page():
-    incoming = (
+    inc_page = request.args.get("inc_page", 1, type=int)
+    out_page = request.args.get("out_page", 1, type=int)
+    incoming_p = (
         MeetingRequest.query
         .filter_by(to_user_id=current_user.id)
         .order_by(MeetingRequest.created_at.desc())
-        .all()
+        .paginate(page=inc_page, per_page=REQUESTS_PER_PAGE, error_out=False)
     )
-    outgoing = (
+    outgoing_p = (
         MeetingRequest.query
         .filter_by(from_user_id=current_user.id)
         .order_by(MeetingRequest.created_at.desc())
-        .all()
+        .paginate(page=out_page, per_page=REQUESTS_PER_PAGE, error_out=False)
     )
     return render_template(
         "requests.html",
-        incoming=incoming,
-        outgoing=outgoing,
+        incoming=incoming_p.items,
+        outgoing=outgoing_p.items,
+        incoming_pagination=incoming_p,
+        outgoing_pagination=outgoing_p,
         pending_count=pending_count(),
     )
 
@@ -173,6 +191,8 @@ def api_request_action(req_id, action):
     req = db.session.get(MeetingRequest, req_id)
     if req is None or req.to_user_id != current_user.id:
         abort(404)
+    if req.status_id != STATUS_PENDING:
+        return jsonify({"ok": False, "error": "Запрос уже обработан"}), 409
     if action == "confirm":
         new_status = STATUS_CONFIRMED
     elif action == "reject":
@@ -218,7 +238,7 @@ def api_notifications():
             "id": r.id,
             "from": r.from_user.username,
             "title": r.event.title,
-            "when": r.event.start_datetime.strftime("%d.%m.%Y в %H:%M"),
+            "when": format_dt(r.event.start_datetime, current_user),
         }
         for r in pending
     ]

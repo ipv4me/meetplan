@@ -70,6 +70,8 @@ def api_create_task():
         "title": task.title,
         "color": task.color,
         "due": task.due_display or "",
+        "due_date": task.due_date.isoformat() if task.due_date else "",
+        "due_time": task.due_time.strftime("%H:%M") if task.due_time else "",
         "done": task.done,
     })
 
@@ -110,6 +112,9 @@ def api_update_task(task_id):
         "id": task.id,
         "title": task.title,
         "due": task.due_display or "",
+        "due_date": task.due_date.isoformat() if task.due_date else "",
+        "due_time": task.due_time.strftime("%H:%M") if task.due_time else "",
+        "color": task.color,
     })
 
 

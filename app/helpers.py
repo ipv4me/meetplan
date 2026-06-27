@@ -48,6 +48,64 @@ def remove_legacy_avatar_file(relative_path):
             pass
 
 
+def bootstrap_admin_emails():
+    return current_app.config.get("ADMIN_EMAILS") or frozenset()
+
+
+def is_bootstrap_admin(user):
+    return user.email.lower() in bootstrap_admin_emails()
+
+
+def apply_bootstrap_admin_role(user):
+    if is_bootstrap_admin(user):
+        user.role = "admin"
+
+
+def sync_bootstrap_admins():
+    """Гарантирует admin для email из ADMIN_EMAILS."""
+    emails = bootstrap_admin_emails()
+    if not emails:
+        return
+    changed = False
+    for user in User.query.all():
+        if user.email.lower() in emails and user.role != "admin":
+            user.role = "admin"
+            changed = True
+    if changed:
+        db.session.commit()
+
+
+def admin_count(organization_id=None):
+    q = User.query.filter_by(role="admin")
+    if organization_id is not None:
+        q = q.filter_by(organization_id=organization_id)
+    return q.count()
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def get_colleague(user_id):
+    """Пользователь той же организации или None."""
+    if user_id == current_user.id:
+        return current_user
+    user = db.session.get(User, user_id)
+    if user is None:
+        return None
+    if not current_user.organization_id:
+        return None
+    if user.organization_id != current_user.organization_id:
+        return None
+    return user
+
+
 def colleagues_query():
     """Пользователи той же организации, кроме текущего."""
     q = User.query.filter(User.id != current_user.id)
@@ -56,32 +114,87 @@ def colleagues_query():
     return q.order_by(User.username)
 
 
+def valid_colleague_ids():
+    return {u.id for u in colleagues_query().all()}
+
+
+def ensure_colleague(user_id):
+    user = get_colleague(user_id)
+    if user is None:
+        abort(404)
+    return user
+
+
 def meeting_user_choices():
     return [(u.id, f"{u.username} ({u.email})") for u in colleagues_query().all()]
 
 
+def validate_avatar_image(data):
+    """Проверяет, что bytes — реальное изображение (Pillow)."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    try:
+        img = Image.open(BytesIO(data))
+        img.verify()
+        img = Image.open(BytesIO(data))
+        fmt = (img.format or "").lower()
+        if fmt not in ("jpeg", "png", "gif", "webp"):
+            return False, "Неподдерживаемый формат изображения"
+        mimetype = {
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "gif": "image/gif",
+            "webp": "image/webp",
+        }.get(fmt, "image/jpeg")
+        return True, mimetype
+    except Exception:
+        return False, "Файл не является изображением"
+
+
+def _rate_key(scope):
+    return f"{scope}:{request.remote_addr or 'unknown'}"
+
+
+def check_rate_limit(scope="login"):
+    """Блокирует IP при слишком многих неудачных попытках."""
+    if current_app.config.get("TESTING"):
+        return
+    key = _rate_key(scope)
+    now = time()
+    attempts = [t for t in _login_attempts.get(key, []) if now - t < RATE_LIMIT_WINDOW]
+    _login_attempts[key] = attempts
+    if len(attempts) >= RATE_LIMIT_MAX:
+        abort(429)
+
+
+def record_failed_login(scope="login"):
+    if current_app.config.get("TESTING"):
+        return
+    key = _rate_key(scope)
+    now = time()
+    attempts = [t for t in _login_attempts.get(key, []) if now - t < RATE_LIMIT_WINDOW]
+    attempts.append(now)
+    _login_attempts[key] = attempts
+
+
 def rate_limit(scope="default"):
-    """Простой in-memory rate limit по IP."""
+    """Проверка rate limit перед обработкой (без записи успешных запросов)."""
 
     def decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-            from flask import current_app
-            if current_app.config.get("TESTING"):
-                return view(*args, **kwargs)
-            ip = request.remote_addr or "unknown"
-            key = f"{scope}:{ip}"
-            now = time()
-            attempts = [t for t in _login_attempts.get(key, []) if now - t < RATE_LIMIT_WINDOW]
-            if len(attempts) >= RATE_LIMIT_MAX:
-                abort(429)
-            attempts.append(now)
-            _login_attempts[key] = attempts
+            check_rate_limit(scope)
             return view(*args, **kwargs)
 
         return wrapped
 
     return decorator
+
+
+USERS_PER_PAGE = 20
+REQUESTS_PER_PAGE = 15
 
 
 def create_meeting_event(creator_id, to_user_id, title, description, start, end):

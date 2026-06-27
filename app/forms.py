@@ -55,6 +55,11 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField("Сменить пароль")
 
 
+class TimezoneForm(FlaskForm):
+    timezone = SelectField("Часовой пояс", choices=[], validators=[DataRequired()])
+    submit = SubmitField("Сохранить")
+
+
 class EventForm(FlaskForm):
     """Создание личного дела."""
 
@@ -66,8 +71,8 @@ class EventForm(FlaskForm):
     submit = SubmitField("Сохранить")
 
     def validate_end_time(self, field):
-        if self.start_time.data and field.data and field.data <= self.start_time.data:
-            raise ValidationError("Окончание должно быть позже начала.")
+        if self.start_time.data and field.data and field.data == self.start_time.data:
+            raise ValidationError("Окончание должно отличаться от начала.")
 
 
 class MeetingForm(FlaskForm):
@@ -82,5 +87,5 @@ class MeetingForm(FlaskForm):
     submit = SubmitField("Отправить запрос")
 
     def validate_end_time(self, field):
-        if self.start_time.data and field.data and field.data <= self.start_time.data:
-            raise ValidationError("Окончание должно быть позже начала.")
+        if self.start_time.data and field.data and field.data == self.start_time.data:
+            raise ValidationError("Окончание должно отличаться от начала.")

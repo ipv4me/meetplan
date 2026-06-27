@@ -10,6 +10,8 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
     SECRET_KEY = "test"
+    ADMIN_EMAILS = frozenset({"owner@test.com"})
+    DEFAULT_USER_TIMEZONE = "UTC"
 
 
 @pytest.fixture
@@ -120,3 +122,132 @@ def test_tasks_with_time(client, app):
     r = client.get("/api/events")
     events = r.get_json()
     assert any("Call" in e.get("title", "") for e in events)
+
+
+def test_bootstrap_admin_and_promote(client, app):
+    _register(client, "owner", "owner@test.com")
+    _register(client, "member", "member@test.com")
+    with app.app_context():
+        owner = User.query.filter_by(email="owner@test.com").first()
+        member = User.query.filter_by(email="member@test.com").first()
+        assert owner.is_admin
+        assert not member.is_admin
+        owner_id = owner.id
+        member_id = member.id
+
+    _login(client, "member@test.com")
+    assert client.get("/admin/users").status_code == 403
+
+    _login(client, "owner@test.com")
+    assert client.get("/admin/users").status_code == 200
+    r = client.post(
+        f"/api/admin/users/{member_id}/role",
+        json={"role": "admin"},
+    )
+    assert r.get_json()["ok"] is True
+    with app.app_context():
+        assert User.query.get(member_id).is_admin
+
+    r = client.post(
+        f"/api/admin/users/{owner_id}/role",
+        json={"role": "member"},
+    )
+    assert r.status_code == 403
+
+
+def test_org_isolation_for_calendar(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "bob", "bob@test.com")
+    with app.app_context():
+        alice = User.query.filter_by(email="alice@test.com").first()
+        bob = User.query.filter_by(email="bob@test.com").first()
+        alice.organization_id = 1
+        bob.organization_id = 2
+        db.session.commit()
+        bob_id = bob.id
+
+    _login(client, "alice@test.com")
+    assert client.get(f"/users/{bob_id}/calendar").status_code == 404
+    assert client.get(f"/api/users/{bob_id}/events").status_code == 404
+
+
+def test_pending_request_guard(client, app):
+    _register(client, "u1", "u1@test.com")
+    _register(client, "u2", "u2@test.com")
+    with app.app_context():
+        u2 = User.query.filter_by(email="u2@test.com").first()
+        u1 = User.query.filter_by(email="u1@test.com").first()
+        u1.organization_id = u2.organization_id = 1
+        u1.timezone = u2.timezone = "UTC"
+        db.session.commit()
+        uid2 = u2.id
+
+    _login(client, "u1@test.com")
+    client.post("/meeting/new", data={
+        "to_user": uid2,
+        "date": "2026-07-01",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Sync",
+        "description": "",
+    }, follow_redirects=True)
+
+    _login(client, "u2@test.com")
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        rid = req.id
+    client.post(f"/api/requests/{rid}/confirm")
+    r = client.post(f"/api/requests/{rid}/reject")
+    assert r.status_code == 409
+
+
+def test_meeting_cancel_by_invitee(client, app):
+    _register(client, "host", "host@test.com")
+    _register(client, "guest", "guest@test.com")
+    with app.app_context():
+        host = User.query.filter_by(email="host@test.com").first()
+        guest = User.query.filter_by(email="guest@test.com").first()
+        host.organization_id = guest.organization_id = 1
+        host.timezone = guest.timezone = "UTC"
+        db.session.commit()
+        gid = guest.id
+
+    _login(client, "host@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-07-05",
+        "start_time": "12:00",
+        "end_time": "13:00",
+        "title": "Review",
+        "description": "",
+    }, follow_redirects=True)
+
+    _login(client, "guest@test.com")
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        client.post(f"/api/requests/{req.id}/confirm")
+        event_id = req.event_id
+
+    r = client.post(f"/api/meetings/{event_id}/cancel")
+    assert r.get_json()["ok"] is True
+
+
+def test_health(client):
+    r = client.get("/health")
+    assert r.get_json()["ok"] is True
+
+
+def test_task_update(client, app):
+    _register(client, "tuser", "t@test.com")
+    _login(client, "t@test.com")
+    r = client.post("/api/tasks", json={"title": "Old", "due_date": "2026-07-03"})
+    tid = r.get_json()["id"]
+    r = client.put(f"/api/tasks/{tid}", json={
+        "title": "New title",
+        "due_date": "2026-07-04",
+        "due_time": "09:30",
+    })
+    data = r.get_json()
+    assert data["ok"] is True
+    assert data["title"] == "New title"
+    assert "09:30" in data["due"]

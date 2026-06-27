@@ -3,49 +3,89 @@
 Информационная система планирования и согласования встреч пользователей
 с календарным интерфейсом (дипломный проект).
 
-**Стек:** Python · Flask · SQLite · Bootstrap 5 · FullCalendar.js · jQuery (AJAX)
+**Стек:** Python · Flask · SQLAlchemy · SQLite/PostgreSQL · Bootstrap 5 · FullCalendar.js · jQuery
 
 ## Возможности
-- Регистрация и авторизация пользователей
-- Личный календарь событий (вид день / неделя / месяц)
-- Личные дела (видны только владельцу)
-- Создание встреч с другим пользователем и запрос на согласование
-- Подтверждение / отклонение встреч (через AJAX, без перезагрузки)
-- Просмотр встреч в календаре с цветовой индикацией статуса
-- Адаптивный интерфейс: на ПК — боковое меню, на телефоне — нижняя
-  навигация и выезжающее меню
 
-## Запуск
+- Регистрация и авторизация
+- Личный календарь (день / неделя / месяц / список), перетаскивание личных событий
+- Задачи «Мои дела» с датой/временем в календаре и редактированием
+- Встречи с согласованием, проверкой конфликтов, отменой обоими участниками
+- Просмотр календаря коллег, поиск общих свободных слотов
+- Администрирование (назначение админов через `ADMIN_EMAILS`)
+- Адаптивный UI, тёмная тема, CSRF-защита AJAX
+
+## Быстрый старт
 
 ```bash
 cd meetplan
 python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # задайте SECRET_KEY и ADMIN_EMAILS
 python run.py
 ```
 
-Открыть в браузере: http://127.0.0.1:5000
+Открыть: http://127.0.0.1:5001
 
-## Как проверить сценарий
-1. Зарегистрировать двух пользователей.
-2. Войти первым → создать личное дело и встречу со вторым.
-3. Войти вторым → во «Входящих» подтвердить встречу.
-4. Встреча станет синей (подтверждённой) в календарях обоих.
+## Переменные окружения
+
+| Переменная | Описание |
+|------------|----------|
+| `SECRET_KEY` | Ключ сессий (обязателен в production) |
+| `ADMIN_EMAILS` | Email владельца, всегда admin |
+| `DATABASE_URL` | PostgreSQL или SQLite |
+| `FLASK_ENV` | `production` на сервере |
+| `FLASK_DEBUG` | `0` на сервере, `1` локально |
+| `PORT` | Порт (по умолчанию 5001) |
+
+## Production
+
+```bash
+gunicorn -w 2 -b 0.0.0.0:5001 wsgi:app
+```
+
+Или через Docker:
+
+```bash
+docker build -t meetplan .
+docker run -p 5001:5001 -e SECRET_KEY=... -e ADMIN_EMAILS=you@mail.com meetplan
+```
+
+## Миграции БД
+
+```bash
+export FLASK_APP=run.py
+flask db init          # один раз
+flask db migrate -m "описание"
+flask db upgrade
+```
+
+При первом запуске также работает `ensure_schema()` для совместимости со старыми БД.
+
+## Тесты
+
+```bash
+pytest tests/ -q
+```
 
 ## Структура
 
 ```
 meetplan/
 ├── app/
-│   ├── __init__.py     # app factory, БД, login, сид статусов
-│   ├── models.py       # модели БД
-│   ├── routes.py       # маршруты и API
-│   ├── forms.py        # формы WTForms
-│   ├── utils.py        # вспомогательные функции
-│   ├── templates/      # HTML-шаблоны
-│   └── static/         # CSS, JS
-├── run.py              # запуск приложения
-├── requirements.txt    # зависимости
-└── config.py           # конфигурация
+│   ├── routes/          # auth, calendar, meetings, tasks, users, admin, …
+│   ├── services/        # scheduling (конфликты, свободные слоты)
+│   ├── templates/
+│   ├── static/
+│   ├── models.py
+│   ├── helpers.py
+│   └── time_utils.py
+├── migrations/          # Flask-Migrate / Alembic
+├── tests/
+├── wsgi.py
+├── run.py
+├── Procfile
+├── Dockerfile
+└── config.py
 ```

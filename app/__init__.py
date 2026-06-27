@@ -1,11 +1,17 @@
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
+from flask_migrate import Migrate
 
 from config import Config
 
 db = SQLAlchemy()
+migrate = Migrate()
 login_manager = LoginManager()
+csrf = CSRFProtect()
 login_manager.login_view = "main.login"
 login_manager.login_message = "Пожалуйста, войдите, чтобы продолжить."
 login_manager.login_message_category = "warning"
@@ -17,6 +23,25 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
+    migrate.init_app(app, db)
+
+    from app.time_utils import format_dt
+
+    @app.template_filter("user_dt")
+    def user_dt_filter(dt, fmt="%d.%m.%Y в %H:%M"):
+        from flask_login import current_user
+        if not dt:
+            return ""
+        user = current_user if current_user.is_authenticated else None
+        return format_dt(dt, user, fmt)
+
+    if (
+        not app.config.get("TESTING")
+        and os.environ.get("FLASK_ENV") == "production"
+        and app.config["SECRET_KEY"] == "dev-secret"
+    ):
+        raise RuntimeError("Set SECRET_KEY environment variable in production.")
 
     from app.routes import bp as main_bp
 
@@ -28,6 +53,7 @@ def create_app(config_class=Config):
         seed_statuses()
         seed_organizations()
         assign_default_organization()
+        sync_bootstrap_admins()
 
     return app
 
@@ -58,6 +84,10 @@ def ensure_schema():
         cols = [c["name"] for c in inspector.get_columns("users")]
         if "role" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(16) DEFAULT 'member'"))
+            db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "timezone" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64) DEFAULT 'Europe/Moscow'"))
             db.session.commit()
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
@@ -144,9 +174,13 @@ def assign_default_organization():
         user.organization_id = 1
         if user.role is None:
             user.role = "member"
-    if users and User.query.filter_by(role="admin").count() == 0:
-        users[0].role = "admin"
     db.session.commit()
+
+
+def sync_bootstrap_admins():
+    from app.helpers import sync_bootstrap_admins as _sync
+
+    _sync()
 
 
 @login_manager.user_loader

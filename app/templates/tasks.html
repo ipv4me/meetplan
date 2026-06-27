@@ -8,7 +8,6 @@
 
     <p class="text-muted small mb-3">Дела с датой отображаются в вашем календаре.</p>
 
-    <!-- Добавление дела -->
     <div class="todo-add">
       <div class="todo-field todo-field-full">
         <label for="taskTitle" class="form-label">Название</label>
@@ -28,16 +27,19 @@
     </div>
     <div class="text-danger small mt-1" id="taskError"></div>
 
-    <!-- Список дел -->
     <div id="taskList" class="mt-3">
       {% for t in tasks %}
-      <div class="todo-item {% if t.done %}done{% endif %}" data-id="{{ t.id }}">
+      <div class="todo-item {% if t.done %}done{% endif %}" data-id="{{ t.id }}"
+           data-title="{{ t.title }}"
+           data-due-date="{{ t.due_date.isoformat() if t.due_date else '' }}"
+           data-due-time="{{ t.due_time.strftime('%H:%M') if t.due_time else '' }}">
         <input class="form-check-input todo-check" type="checkbox" {% if t.done %}checked{% endif %}>
         <span class="task-dot" style="background:{{ t.color }}"></span>
         <div class="flex-grow-1">
           <div class="todo-title">{{ t.title }}</div>
-          {% if t.due_display %}<div class="text-muted small">{{ t.due_display }}</div>{% endif %}
+          {% if t.due_display %}<div class="text-muted small todo-due">{{ t.due_display }}</div>{% else %}<div class="text-muted small todo-due d-none"></div>{% endif %}
         </div>
+        <button class="btn-icon todo-edit" title="Изменить"><i class="bi bi-pencil"></i></button>
         <button class="btn-icon todo-del" title="Удалить"><i class="bi bi-trash"></i></button>
       </div>
       {% endfor %}
@@ -45,6 +47,36 @@
     <p class="text-muted text-center py-4 {% if tasks %}d-none{% endif %}" id="taskEmpty">
       Список пуст. Добавьте первое дело!
     </p>
+  </div>
+</div>
+
+<div class="modal fade" id="taskEditModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать дело</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="editTaskTitle" class="form-label">Название</label>
+          <input type="text" class="form-control" id="editTaskTitle">
+        </div>
+        <div class="mb-3">
+          <label for="editTaskDate" class="form-label">Дата</label>
+          <input type="date" class="form-control" id="editTaskDate">
+        </div>
+        <div class="mb-3">
+          <label for="editTaskTime" class="form-label">Время</label>
+          <input type="time" class="form-control" id="editTaskTime">
+        </div>
+        <div class="text-danger small" id="editTaskError"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-primary" id="editTaskSave">Сохранить</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

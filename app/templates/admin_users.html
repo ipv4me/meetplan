@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar %}
+{% block title %}Администрирование — MeetPlan{% endblock %}
+{% block topbar_title %}Администрирование{% endblock %}
+{% block content %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <h5 class="mb-2">Администраторы</h5>
+    <p class="text-muted small mb-0">
+      Назначайте и снимайте права администратора для участников организации.
+      Владелец (email из <code>ADMIN_EMAILS</code>) всегда остаётся администратором.
+    </p>
+  </div>
+</div>
+
+<div class="card content-card">
+  <div class="card-body">
+    {% for u in members %}
+    <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
+      {{ avatar(u) }}
+      <div class="request-main min-w-0">
+        <div class="fw-semibold d-flex flex-wrap align-items-center gap-2">
+          <span>{{ u.username }}</span>
+          {% if u.id == current_user.id %}
+          <span class="badge text-bg-secondary">Вы</span>
+          {% endif %}
+          {% if u.id in bootstrap_ids %}
+          <span class="badge text-bg-dark">Владелец</span>
+          {% elif u.is_admin %}
+          <span class="badge text-bg-primary admin-badge">Админ</span>
+          {% endif %}
+        </div>
+        <div class="text-muted small text-break">{{ u.email }}</div>
+      </div>
+      <div class="request-actions request-actions-row">
+        {% if u.id in bootstrap_ids %}
+        <span class="text-muted small">Неизменяемо</span>
+        {% elif u.id == current_user.id %}
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Снимите права у другого админа или передайте их">
+          Администратор
+        </button>
+        {% elif u.is_admin %}
+        <button type="button" class="btn btn-outline-danger btn-sm admin-role-btn" data-role="member">
+          Снять права
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-primary btn-sm admin-role-btn" data-role="admin">
+          Сделать админом
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    {% from '_macros.html' import empty_state %}
+    {{ empty_state('bi-shield-lock', 'Нет пользователей', 'В организации пока никого нет.') }}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll(".admin-role-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    const row = btn.closest(".admin-user-row");
+    const userId = row.dataset.userId;
+    const role = btn.dataset.role;
+    const label = role === "admin" ? "назначить администратором" : "снять права администратора";
+    if (!confirm("Вы уверены, что хотите " + label + "?")) return;
+    btn.disabled = true;
+    $.ajax({
+      url: "/api/admin/users/" + userId + "/role",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ role: role }),
+      success: function () { location.reload(); },
+      error: function (xhr) {
+        btn.disabled = false;
+        const msg = (xhr.responseJSON && xhr.responseJSON.error) || "Не удалось изменить роль";
+        alert(msg);
+      },
+    });
+  });
+});
+</script>
+{% endblock %}

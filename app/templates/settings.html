@@ -33,9 +33,26 @@
 
 <div class="card content-card form-card mb-3">
   <div class="card-body">
+    <h5 class="mb-3">Часовой пояс</h5>
+    <p class="text-muted small">Время встреч и календаря отображается в выбранном поясе. В базе хранится UTC.</p>
+    <form method="POST" class="d-flex flex-wrap gap-2 align-items-end">
+      {{ tz_form.hidden_tag() }}
+      <input type="hidden" name="form_name" value="timezone">
+      <div class="flex-grow-1" style="min-width:200px">
+        {{ tz_form.timezone.label(class="form-label") }}
+        {{ tz_form.timezone(class="form-select form-select-sm") }}
+      </div>
+      {{ tz_form.submit(class="btn btn-primary btn-sm") }}
+    </form>
+  </div>
+</div>
+
+<div class="card content-card form-card mb-3">
+  <div class="card-body">
     <h5 class="mb-3">Смена пароля</h5>
     <form method="POST" novalidate>
       {{ form.hidden_tag() }}
+      <input type="hidden" name="form_name" value="password">
       <div class="mb-3">
         {{ form.old_password.label(class="form-label") }}
         {{ form.old_password(class="form-control") }}

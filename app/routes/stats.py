@@ -7,7 +7,8 @@ from sqlalchemy import func
 from app import db
 from app.models import Event, EventParticipant, MeetingRequest, User
 from app.utils import STATUS_PENDING, STATUS_CONFIRMED, STATUS_REJECTED, STATUS_CANCELLED
-from app.helpers import pending_count
+from app.helpers import pending_count, USERS_PER_PAGE
+from app.time_utils import format_month_year, user_timezone
 from app.routes import bp
 
 
@@ -57,7 +58,7 @@ def stats():
         "stats.html",
         my_counts=my_counts,
         org_counts=org_counts,
-        month_label=month_start.strftime("%B %Y"),
+        month_label=format_month_year(month_start, user_timezone(current_user)),
         pending_count=pending_count(),
     )
 

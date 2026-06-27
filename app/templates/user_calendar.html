@@ -15,7 +15,7 @@
         <i class="bi bi-calendar-plus"></i> Назначить встречу
       </a>
     </div>
-    <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}"></div>
+    <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}" data-timezone="{{ user_timezone }}"></div>
     <p class="text-muted small mt-2 mb-0"><i class="bi bi-hand-index"></i> Нажмите на свободный слот, чтобы назначить встречу.</p>
     <div class="legend mt-3">
       <span><i class="dot-legend" style="background:#f59e0b"></i> Занят (личные дела)</span>

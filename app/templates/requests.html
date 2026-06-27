@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar, empty_state %}
+{% from '_macros.html' import avatar, empty_state, request_status_badge, pagination_nav %}
 {% block title %}Запросы — MeetPlan{% endblock %}
 {% block topbar_title %}Запросы{% endblock %}
 {% block content %}
@@ -17,19 +17,15 @@
     </ul>
 
     <div class="tab-content">
-      <!-- Входящие -->
       <div class="tab-pane fade show active" id="incoming">
         {% for r in incoming %}
         <div class="request-card" id="req-{{ r.id }}">
           {{ avatar(r.from_user) }}
           <div class="request-main">
             <div class="fw-semibold">{{ r.from_user.username }}</div>
-            <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+            <div class="text-muted small">{{ r.event.start_datetime|user_dt }}</div>
             <div class="small">{{ r.event.title }}</div>
-            <span class="badge status-badge mt-1 {{ 'st-pending' if r.status_id == 1 else 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}"
-                  data-status="{{ r.status_id }}">
-              {% if r.status_id == 1 %}Ожидает подтверждения{% elif r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
-            </span>
+            {{ request_status_badge(r.status_id) }}
           </div>
           {% if r.status_id == 1 %}
           <div class="request-actions">
@@ -39,28 +35,26 @@
           {% endif %}
         </div>
         {% else %}
-        {% from '_macros.html' import empty_state %}
         {{ empty_state('bi-inbox', 'Входящих запросов нет', 'Когда коллега назначит встречу, она появится здесь.') }}
         {% endfor %}
+        {{ pagination_nav(incoming_pagination, 'inc_page') }}
       </div>
 
-      <!-- Отправленные -->
       <div class="tab-pane fade" id="outgoing">
         {% for r in outgoing %}
         <div class="request-card">
           {{ avatar(r.to_user) }}
           <div class="request-main">
             <div class="fw-semibold">{{ r.to_user.username }}</div>
-            <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+            <div class="text-muted small">{{ r.event.start_datetime|user_dt }}</div>
             <div class="small">{{ r.event.title }}</div>
-            <span class="badge mt-1 {{ 'st-pending' if r.status_id == 1 else 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}">
-              {% if r.status_id == 1 %}Ожидает{% elif r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
-            </span>
+            {{ request_status_badge(r.status_id) }}
           </div>
         </div>
         {% else %}
         {{ empty_state('bi-send', 'Исходящих запросов нет', 'Создайте встречу с коллегой из раздела «Участники».', url_for('main.new_meeting'), 'Создать встречу') }}
         {% endfor %}
+        {{ pagination_nav(outgoing_pagination, 'out_page') }}
       </div>
     </div>
   </div>

@@ -1,3 +1,5 @@
+import os
+
 from app import create_app, db
 from app.models import User, Event, MeetingRequest, Status, EventParticipant
 
@@ -6,7 +8,6 @@ app = create_app()
 
 @app.shell_context_processor
 def make_shell_context():
-    """Контекст для `flask shell` — удобно отлаживать модели."""
     return {
         "db": db,
         "User": User,
@@ -18,5 +19,6 @@ def make_shell_context():
 
 
 if __name__ == "__main__":
-    # 5000 на macOS обычно занят сервисом AirPlay Receiver, поэтому 5001
-    app.run(debug=True, port=5001)
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    port = int(os.environ.get("PORT", 5001))
+    app.run(debug=debug, port=port)

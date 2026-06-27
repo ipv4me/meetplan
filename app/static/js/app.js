@@ -34,20 +34,28 @@ function initMeetingCalendarLink() {
   update();
 }
 
+/* ---------- +1 час к времени (корректно через 23:00) ---------- */
+function addOneHour(timeStr) {
+  const parts = timeStr.split(":").map(Number);
+  const d = new Date(2000, 0, 1, parts[0], parts[1] || 0);
+  d.setHours(d.getHours() + 1);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function applyEndTimeFromStart(form, startSelector, endHiddenId) {
+  const start = form.querySelector(startSelector);
+  const endHidden = document.getElementById(endHiddenId);
+  if (start && start.value && endHidden) {
+    endHidden.value = addOneHour(start.value);
+  }
+}
+
 /* ---------- Виджет «Создание встречи» ---------- */
 function initWidgetMeetingForm() {
   const form = document.querySelector(".widget-form");
   if (!form) return;
   form.addEventListener("submit", function () {
-    // окончание = начало + 1 час (поле end_time скрыто)
-    const start = form.querySelector('[name="start_time"]').value;
-    const endHidden = document.getElementById("wgEndTime");
-    if (start && endHidden) {
-      const [h, m] = start.split(":").map(Number);
-      const end = new Date(2000, 0, 1, h + 1, m);
-      endHidden.value =
-        String(end.getHours()).padStart(2, "0") + ":" + String(end.getMinutes()).padStart(2, "0");
-    }
+    applyEndTimeFromStart(form, '[name="start_time"]', "wgEndTime");
   });
 }
 
@@ -107,6 +115,11 @@ function initTasks() {
     }
   });
   list.addEventListener("click", function (e) {
+    const editBtn = e.target.closest(".todo-edit");
+    if (editBtn) {
+      openTaskEdit(editBtn.closest(".todo-item"));
+      return;
+    }
     const del = e.target.closest(".todo-del");
     if (del) {
       const item = del.closest(".todo-item");
@@ -120,15 +133,70 @@ function initTasks() {
       });
     }
   });
+
+  const editSave = document.getElementById("editTaskSave");
+  if (editSave) {
+    editSave.addEventListener("click", saveTaskEdit);
+  }
+}
+
+let editingTaskItem = null;
+
+function openTaskEdit(item) {
+  editingTaskItem = item;
+  document.getElementById("editTaskTitle").value = item.dataset.title || "";
+  document.getElementById("editTaskDate").value = item.dataset.dueDate || "";
+  document.getElementById("editTaskTime").value = item.dataset.dueTime || "";
+  document.getElementById("editTaskError").textContent = "";
+  new bootstrap.Modal(document.getElementById("taskEditModal")).show();
+}
+
+function saveTaskEdit() {
+  if (!editingTaskItem) return;
+  const title = document.getElementById("editTaskTitle").value.trim();
+  const dueDate = document.getElementById("editTaskDate").value;
+  const dueTime = document.getElementById("editTaskTime").value;
+  const errEl = document.getElementById("editTaskError");
+  if (!title) { errEl.textContent = "Введите название"; return; }
+  $.ajax({
+    url: "/api/tasks/" + editingTaskItem.dataset.id,
+    type: "PUT",
+    contentType: "application/json",
+    data: JSON.stringify({
+      title: title,
+      due_date: dueDate || null,
+      due_time: dueTime || null,
+    }),
+    success: function (res) {
+      editingTaskItem.dataset.title = res.title;
+      editingTaskItem.dataset.dueDate = dueDate;
+      editingTaskItem.dataset.dueTime = dueTime;
+      editingTaskItem.querySelector(".todo-title").textContent = res.title;
+      const dueEl = editingTaskItem.querySelector(".todo-due");
+      if (res.due) {
+        dueEl.textContent = res.due;
+        dueEl.classList.remove("d-none");
+      } else {
+        dueEl.classList.add("d-none");
+      }
+      bootstrap.Modal.getInstance(document.getElementById("taskEditModal")).hide();
+    },
+    error: function (xhr) {
+      errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
+    },
+  });
 }
 
 function renderTask(t) {
-  const due = t.due ? '<div class="text-muted small">' + t.due + "</div>" : "";
+  const due = t.due ? '<div class="text-muted small todo-due">' + t.due + "</div>" : '<div class="text-muted small todo-due d-none"></div>';
+  const dueDate = t.due_date || "";
+  const dueTime = t.due_time || "";
   return (
-    '<div class="todo-item" data-id="' + t.id + '">' +
+    '<div class="todo-item" data-id="' + t.id + '" data-title="' + escapeHtml(t.title) + '" data-due-date="' + dueDate + '" data-due-time="' + dueTime + '">' +
     '<input class="form-check-input todo-check" type="checkbox">' +
     '<span class="task-dot" style="background:' + t.color + '"></span>' +
     '<div class="flex-grow-1"><div class="todo-title">' + escapeHtml(t.title) + "</div>" + due + "</div>" +
+    '<button class="btn-icon todo-edit" title="Изменить"><i class="bi bi-pencil"></i></button>' +
     '<button class="btn-icon todo-del" title="Удалить"><i class="bi bi-trash"></i></button>' +
     "</div>"
   );
@@ -248,8 +316,10 @@ function initCalendar(el) {
   const eventsUrl = el.dataset.eventsUrl || "/api/events";
   const isReadOnly = eventsUrl !== "/api/events";
   const viewUserId = el.dataset.viewUserId || "";
+  const tz = el.dataset.timezone || "local";
   calendar = new FullCalendar.Calendar(el, {
     locale: "ru",
+    timeZone: tz,
     initialView: isMobile() ? "timeGridDay" : "timeGridWeek",
     headerToolbar: {
       left: "today prev,next",
@@ -307,6 +377,13 @@ function initCalendar(el) {
       }
       showEventDetails(info.event);
     },
+    editable: !isReadOnly,
+    eventDrop: function (info) {
+      reschedulePersonalEvent(info);
+    },
+    eventResize: function (info) {
+      reschedulePersonalEvent(info);
+    },
     dateClick: function (info) {
       if (!isReadOnly || !viewUserId) return;
       const d = info.date;
@@ -333,6 +410,26 @@ function initCalendar(el) {
         right: isReadOnly ? rightToolbar().replace("addEvent ", "") : rightToolbar(),
       });
     }
+  });
+}
+
+function reschedulePersonalEvent(info) {
+  if (info.event.extendedProps.type !== "personal") {
+    info.revert();
+    return;
+  }
+  $.ajax({
+    url: "/api/events/" + info.event.id + "/reschedule",
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify({
+      start: info.event.start.toISOString(),
+      end: info.event.end.toISOString(),
+    }),
+    error: function () {
+      info.revert();
+      alert("Не удалось перенести событие");
+    },
   });
 }
 
@@ -383,7 +480,7 @@ function showEventDetails(event) {
 
   const cancelBtn = document.getElementById("evCancel");
   if (cancelBtn) {
-    const canCancel = props.type === "meeting" && props.isOwner && props.statusId !== 4 && props.statusId !== 3;
+    const canCancel = props.canCancel === true;
     cancelBtn.style.display = canCancel ? "inline-block" : "none";
     cancelBtn.dataset.eventId = event.id;
   }
@@ -617,12 +714,6 @@ function initMobileMeetingWidget() {
   const form = document.getElementById("mobileMeetingForm");
   if (!form) return;
   form.addEventListener("submit", function () {
-    const start = form.querySelector('[name="start_time"]').value;
-    const endHidden = document.getElementById("mobEndTime");
-    if (start && endHidden) {
-      const parts = start.split(":").map(Number);
-      const end = new Date(2000, 0, 1, parts[0] + 1, parts[1] || 0);
-      endHidden.value = String(end.getHours()).padStart(2, "0") + ":" + String(end.getMinutes()).padStart(2, "0");
-    }
+    applyEndTimeFromStart(form, '[name="start_time"]', "mobEndTime");
   });
 }

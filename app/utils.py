@@ -125,6 +125,10 @@ def _tasks_to_fc(user_id):
 
 def _to_fc(ev, status_id, is_owner=False):
     bg, border, text = event_style(ev, status_id)
+    can_cancel = (
+        ev.event_type == "meeting"
+        and status_id not in (STATUS_REJECTED, STATUS_CANCELLED)
+    )
     return {
         "id": ev.id,
         "title": ev.title,
@@ -139,8 +143,10 @@ def _to_fc(ev, status_id, is_owner=False):
             "statusId": status_id,
             "statusLabel": status_label(status_id) if ev.event_type == "meeting" else "Личное событие",
             "isOwner": is_owner,
+            "canCancel": can_cancel,
             "accent": border,
         },
+        "editable": ev.event_type == "personal" and is_owner,
     }
 
 
