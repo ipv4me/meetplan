@@ -1,8 +1,10 @@
-from flask import render_template, jsonify, abort, request, redirect, url_for
+from datetime import timedelta
+
+from flask import render_template, jsonify, abort, request
 from flask_login import login_required, current_user
 
 from app import db
-from app.models import User, Friendship, Event, MeetingRequest, EventParticipant
+from app.models import User, Friendship, Event, MeetingRequest
 from app.helpers import (
     pending_count,
     admin_required,
@@ -14,20 +16,33 @@ from app.time_utils import format_month_year, user_timezone, utcnow
 from app.routes import bp
 
 
-def _count_meetings_by_status(participations):
-    counts = {"pending": 0, "confirmed": 0, "rejected": 0, "cancelled": 0, "total": 0}
-    for p in participations:
-        req = p.event.request
-        sid = req.status_id if req else p.status_id
-        counts["total"] += 1
-        if sid == STATUS_PENDING:
+def _meeting_counts_for_month(month_start):
+    requests = (
+        MeetingRequest.query
+        .join(Event, Event.id == MeetingRequest.event_id)
+        .filter(Event.start_datetime >= month_start)
+        .all()
+    )
+    counts = {"pending": 0, "confirmed": 0, "rejected": 0, "cancelled": 0, "total": len(requests)}
+    for req in requests:
+        if req.status_id == STATUS_PENDING:
             counts["pending"] += 1
-        elif sid == STATUS_CONFIRMED:
+        elif req.status_id == STATUS_CONFIRMED:
             counts["confirmed"] += 1
-        elif sid == STATUS_REJECTED:
+        elif req.status_id == STATUS_REJECTED:
             counts["rejected"] += 1
-        elif sid == STATUS_CANCELLED:
+        elif req.status_id == STATUS_CANCELLED:
             counts["cancelled"] += 1
+    return counts
+
+
+def _friend_counts():
+    """user_id -> число принятых дружб."""
+    counts = {}
+    rows = Friendship.query.filter_by(status="accepted").all()
+    for row in rows:
+        counts[row.requester_id] = counts.get(row.requester_id, 0) + 1
+        counts[row.addressee_id] = counts.get(row.addressee_id, 0) + 1
     return counts
 
 
@@ -35,51 +50,33 @@ def _count_meetings_by_status(participations):
 @login_required
 @admin_required
 def admin_users():
-    members = User.query.order_by(User.username).all()
-    bootstrap = {u.id for u in members if is_bootstrap_admin(u)}
     now = utcnow()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    week_start = now - timedelta(days=7)
 
-    all_requests = (
-        MeetingRequest.query
-        .join(Event, Event.id == MeetingRequest.event_id)
-        .filter(Event.start_datetime >= month_start)
-        .all()
-    )
-    platform_counts = {
-        "pending": sum(1 for r in all_requests if r.status_id == STATUS_PENDING),
-        "confirmed": sum(1 for r in all_requests if r.status_id == STATUS_CONFIRMED),
-        "rejected": sum(1 for r in all_requests if r.status_id == STATUS_REJECTED),
-        "cancelled": sum(1 for r in all_requests if r.status_id == STATUS_CANCELLED),
-        "total": len(all_requests),
-    }
+    members = User.query.order_by(User.username).all()
+    bootstrap = {u.id for u in members if is_bootstrap_admin(u)}
+    meeting_counts = _meeting_counts_for_month(month_start)
+    friend_counts = _friend_counts()
 
-    my_participations = (
-        EventParticipant.query
-        .join(Event, Event.id == EventParticipant.event_id)
-        .filter(
-            EventParticipant.user_id == current_user.id,
-            Event.event_type == "meeting",
-            Event.start_datetime >= month_start,
-        )
-        .all()
-    )
-
-    platform_stats = {
-        "users": User.query.count(),
+    overview = {
+        "users_total": len(members),
+        "users_new_week": sum(1 for u in members if u.created_at and u.created_at >= week_start),
+        "users_new_month": sum(1 for u in members if u.created_at and u.created_at >= month_start),
         "admins": platform_admin_count(),
         "friendships": Friendship.query.filter_by(status="accepted").count(),
-        "pending_friend_requests": Friendship.query.filter_by(status="pending").count(),
-        "meetings_month": platform_counts["total"],
-        "pending_requests": MeetingRequest.query.filter_by(status_id=STATUS_PENDING).count(),
+        "pending_friends": Friendship.query.filter_by(status="pending").count(),
+        "pending_meetings": MeetingRequest.query.filter_by(status_id=STATUS_PENDING).count(),
     }
+
     return render_template(
         "admin_users.html",
         members=members,
         bootstrap_ids=bootstrap,
-        platform_stats=platform_stats,
-        platform_counts=platform_counts,
-        my_counts=_count_meetings_by_status(my_participations),
+        friend_counts=friend_counts,
+        overview=overview,
+        meeting_counts=meeting_counts,
+        recent_users=User.query.order_by(User.created_at.desc()).limit(6).all(),
         month_label=format_month_year(month_start, user_timezone(current_user)),
         pending_count=pending_count(),
     )

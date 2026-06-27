@@ -32,13 +32,14 @@
 <div class="card content-card mb-3 d-md-none mobile-meeting-card">
   <div class="card-body">
     <h6 class="widget-title">Быстрая встреча</h6>
+    {% if users %}
     <form method="POST" action="{{ url_for('main.new_meeting') }}" id="mobileMeetingForm" class="widget-form">
       {{ meeting_form.csrf_token }}
       <div class="mb-2">
         <label class="form-label small">С кем</label>
         <select name="to_user" class="form-select form-select-sm" required>
-          <option value="" disabled selected>Выберите участника</option>
-          {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+          <option value="" disabled selected>Выберите друга</option>
+          {% for u in users %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}
         </select>
       </div>
       <div class="row g-2 mb-2">
@@ -61,6 +62,9 @@
       </div>
       <button type="submit" class="btn btn-primary btn-sm w-100">Отправить запрос</button>
     </form>
+    {% else %}
+    <p class="text-muted small mb-0">Добавьте друзей, чтобы назначать встречи. <a href="{{ url_for('main.friends') }}">Перейти к друзьям</a></p>
+    {% endif %}
   </div>
 </div>
 
@@ -70,13 +74,14 @@
     <div class="card content-card h-100">
       <div class="card-body">
         <h6 class="widget-title">Создание встречи</h6>
+        {% if users %}
         <form method="POST" action="{{ url_for('main.new_meeting') }}" class="widget-form">
           {{ meeting_form.csrf_token }}
           <div class="mb-2">
             <label class="form-label small">С кем</label>
             <select name="to_user" class="form-select form-select-sm" required>
-              <option value="" disabled selected>Выберите участника</option>
-              {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+              <option value="" disabled selected>Выберите друга</option>
+              {% for u in users %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}
             </select>
           </div>
           <div class="row g-2 mb-2">
@@ -103,6 +108,9 @@
           </div>
           <button type="submit" class="btn btn-primary btn-sm w-100">Отправить запрос</button>
         </form>
+        {% else %}
+        <p class="text-muted small mb-0">Добавьте друзей, чтобы назначать встречи. <a href="{{ url_for('main.friends') }}">Перейти к друзьям</a></p>
+        {% endif %}
       </div>
     </div>
   </div>

@@ -103,9 +103,28 @@ def ensure_schema():
         if "invite_token" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN invite_token VARCHAR(32)"))
             db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "hide_calendar_details_from_friends" not in cols:
+            db.session.execute(text(
+                "ALTER TABLE users ADD COLUMN hide_calendar_details_from_friends BOOLEAN DEFAULT 0 NOT NULL"
+            ))
+            db.session.commit()
     if "friendships" not in inspector.get_table_names():
         from app.models import Friendship
         Friendship.__table__.create(db.engine)
+    elif "friendships" in inspector.get_table_names():
+        cols = [c["name"] for c in inspector.get_columns("friendships")]
+        if "requester_shares_details" not in cols:
+            db.session.execute(text(
+                "ALTER TABLE friendships ADD COLUMN requester_shares_details BOOLEAN DEFAULT 1 NOT NULL"
+            ))
+            db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("friendships")]
+        if "addressee_shares_details" not in cols:
+            db.session.execute(text(
+                "ALTER TABLE friendships ADD COLUMN addressee_shares_details BOOLEAN DEFAULT 1 NOT NULL"
+            ))
+            db.session.commit()
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
         if "due_time" not in cols:

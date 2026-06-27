@@ -8,9 +8,12 @@ from app.friends_service import (
     accept_friendship,
     create_friend_request,
     respond_friend_request,
-    find_user_for_friend_search,
+    cancel_friend_request,
+    suggest_users_for_friend,
     pending_incoming,
     pending_outgoing,
+    set_friend_shares_details,
+    hide_details_map,
 )
 from app.services.scheduling import mutual_free_slots
 from app.routes import bp
@@ -31,6 +34,8 @@ def friends():
         invite_url=invite_url,
         incoming=pending_incoming(current_user.id),
         outgoing=pending_outgoing(current_user.id),
+        hide_details=hide_details_map(current_user.id),
+        hide_calendar_globally=current_user.hide_calendar_details_from_friends,
         pending_count=pending_count(),
     )
 
@@ -59,19 +64,30 @@ def friends_join(token):
     return redirect(url_for("main.friends"))
 
 
-@bp.route("/api/friends/search", methods=["POST"])
+@bp.route("/api/friends/suggest")
 @login_required
-def api_friend_search():
+def api_friend_suggest():
+    q = request.args.get("q", "")
+    users = suggest_users_for_friend(q, current_user.id)
+    return jsonify({"ok": True, "users": users})
+
+
+@bp.route("/api/friends/request", methods=["POST"])
+@login_required
+def api_friend_request():
     data = request.get_json() or {}
-    target, err = find_user_for_friend_search(data.get("query", ""))
-    if err:
-        return jsonify({"ok": False, "error": err}), 400
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"ok": False, "error": "Выберите пользователя"}), 400
+    target = db.session.get(User, int(user_id))
+    if target is None:
+        return jsonify({"ok": False, "error": "Пользователь не найден"}), 404
     if target.id == current_user.id:
         return jsonify({"ok": False, "error": "Нельзя добавить себя"}), 400
     _, err = create_friend_request(current_user.id, target.id)
     if err:
         return jsonify({"ok": False, "error": err}), 400
-    return jsonify({"ok": True, "user": {"id": target.id, "display_name": target.display_name}})
+    return jsonify({"ok": True, "display_name": target.display_name})
 
 
 @bp.route("/api/friends/requests/<int:friendship_id>/accept", methods=["POST"])
@@ -91,6 +107,39 @@ def api_friend_reject(friendship_id):
     if err:
         return jsonify({"ok": False, "error": err}), 404
     return jsonify({"ok": True})
+
+
+@bp.route("/api/friends/requests/<int:friendship_id>/cancel", methods=["POST"])
+@login_required
+def api_friend_cancel(friendship_id):
+    _, err = cancel_friend_request(friendship_id, current_user.id)
+    if err:
+        return jsonify({"ok": False, "error": err}), 404
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/friends/hide-calendar-details", methods=["POST"])
+@login_required
+def api_hide_calendar_details():
+    data = request.get_json() or {}
+    if "hide" not in data:
+        return jsonify({"ok": False, "error": "Укажите hide"}), 400
+    current_user.hide_calendar_details_from_friends = bool(data["hide"])
+    db.session.commit()
+    return jsonify({"ok": True, "hide": current_user.hide_calendar_details_from_friends})
+
+
+@bp.route("/api/friends/<int:friend_id>/share-details", methods=["POST"])
+@login_required
+def api_friend_share_details(friend_id):
+    ensure_friend(friend_id)
+    data = request.get_json() or {}
+    if "share" not in data:
+        return jsonify({"ok": False, "error": "Укажите share"}), 400
+    _, err = set_friend_shares_details(current_user.id, friend_id, data["share"])
+    if err:
+        return jsonify({"ok": False, "error": err}), 404
+    return jsonify({"ok": True, "share": bool(data["share"])})
 
 
 @bp.route("/users/<int:user_id>/calendar")

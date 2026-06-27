@@ -3,96 +3,171 @@
 {% block title %}Администрирование — MeetPlan{% endblock %}
 {% block topbar_title %}Администрирование{% endblock %}
 {% block content %}
-<div class="card content-card mb-3">
-  <div class="card-body">
-    <h6 class="mb-3 fw-semibold">Платформа</h6>
-    <div class="stat-grid stat-grid-metrics">
-      <div class="stat-item"><span class="stat-num">{{ platform_stats.users }}</span><span class="stat-label">Пользователей</span></div>
-      <div class="stat-item"><span class="stat-num">{{ platform_stats.admins }}</span><span class="stat-label">Админов</span></div>
-      <div class="stat-item"><span class="stat-num">{{ platform_stats.friendships }}</span><span class="stat-label">Дружб</span></div>
-      <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_stats.pending_friend_requests }}</span><span class="stat-label">Запросов в друзья</span></div>
-      <div class="stat-item"><span class="stat-num">{{ platform_stats.meetings_month }}</span><span class="stat-label">Встреч в месяце</span></div>
-      <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_stats.pending_requests }}</span><span class="stat-label">Ожидают ответа</span></div>
+
+<p class="text-muted small mb-3 admin-intro">
+  Сводка по платформе и управление ролями. Личная статистика встреч — в календаре и на странице «Запросы».
+</p>
+
+<section class="admin-section mb-3">
+  <h6 class="admin-section-title"><i class="bi bi-speedometer2" aria-hidden="true"></i> Обзор платформы</h6>
+  <div class="admin-kpi-grid">
+    <div class="admin-kpi">
+      <span class="admin-kpi-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+      <span class="admin-kpi-num">{{ overview.users_total }}</span>
+      <span class="admin-kpi-label">Пользователей</span>
+      {% if overview.users_new_month %}
+      <span class="admin-kpi-hint">+{{ overview.users_new_month }} за месяц{% if overview.users_new_week %}, {{ overview.users_new_week }} за неделю{% endif %}</span>
+      {% else %}
+      <span class="admin-kpi-hint">Новых за месяц нет</span>
+      {% endif %}
+    </div>
+    <div class="admin-kpi">
+      <span class="admin-kpi-icon"><i class="bi bi-heart" aria-hidden="true"></i></span>
+      <span class="admin-kpi-num">{{ overview.friendships }}</span>
+      <span class="admin-kpi-label">Активных дружб</span>
+      <span class="admin-kpi-hint">Принятые связи между пользователями</span>
+    </div>
+    <div class="admin-kpi">
+      <span class="admin-kpi-icon"><i class="bi bi-calendar-check" aria-hidden="true"></i></span>
+      <span class="admin-kpi-num">{{ meeting_counts.total }}</span>
+      <span class="admin-kpi-label">Встреч в {{ month_label }}</span>
+      <span class="admin-kpi-hint">Запланированы на этот месяц</span>
+    </div>
+    <div class="admin-kpi">
+      <span class="admin-kpi-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+      <span class="admin-kpi-num">{{ overview.admins }}</span>
+      <span class="admin-kpi-label">Администраторов</span>
+      <span class="admin-kpi-hint">Имеют доступ к этой панели</span>
     </div>
   </div>
-</div>
+</section>
 
-<div class="row g-3 mb-3">
-  <div class="col-12 col-lg-6">
-    <div class="card content-card stat-panel h-100">
-      <div class="card-body">
-        <h6 class="mb-3 fw-semibold">Мои встречи — {{ month_label }}</h6>
-        <div class="stat-grid stat-grid-metrics">
-          <div class="stat-item"><span class="stat-num">{{ my_counts.total }}</span><span class="stat-label">Всего</span></div>
-          <div class="stat-item"><span class="stat-num text-primary">{{ my_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
-          <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ my_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
-          <div class="stat-item"><span class="stat-num text-danger">{{ my_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
-          <div class="stat-item"><span class="stat-num text-muted">{{ my_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
+{% if overview.pending_friends or overview.pending_meetings %}
+<section class="admin-section mb-3">
+  <h6 class="admin-section-title"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Требуют внимания</h6>
+  <div class="admin-attention-grid">
+    {% if overview.pending_friends %}
+    <div class="admin-attention-item">
+      <span class="admin-attention-num">{{ overview.pending_friends }}</span>
+      <span class="admin-attention-label">Запросов в друзья без ответа</span>
+    </div>
+    {% endif %}
+    {% if overview.pending_meetings %}
+    <div class="admin-attention-item">
+      <span class="admin-attention-num">{{ overview.pending_meetings }}</span>
+      <span class="admin-attention-label">Встреч ждут подтверждения</span>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="admin-section mb-3">
+  <h6 class="admin-section-title"><i class="bi bi-bar-chart" aria-hidden="true"></i> Встречи за {{ month_label }}</h6>
+  <p class="text-muted small mb-3">Статусы запросов на встречи по всей платформе.</p>
+  <div class="stat-grid stat-grid-metrics">
+    <div class="stat-item">
+      <span class="stat-num">{{ meeting_counts.total }}</span>
+      <span class="stat-label">Всего</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num text-primary">{{ meeting_counts.confirmed }}</span>
+      <span class="stat-label">Подтверждено</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num" style="color:#8b5cf6">{{ meeting_counts.pending }}</span>
+      <span class="stat-label">Ожидают</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num text-danger">{{ meeting_counts.rejected }}</span>
+      <span class="stat-label">Отклонено</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num text-muted">{{ meeting_counts.cancelled }}</span>
+      <span class="stat-label">Отменено</span>
+    </div>
+  </div>
+</section>
+
+{% if recent_users %}
+<section class="admin-section mb-3">
+  <div class="card content-card">
+    <div class="card-body">
+      <h6 class="admin-section-title mb-3"><i class="bi bi-person-plus" aria-hidden="true"></i> Недавние регистрации</h6>
+      <div class="admin-recent-list">
+        {% for u in recent_users %}
+        <div class="admin-recent-row">
+          {{ avatar(u) }}
+          <div class="admin-recent-main min-w-0">
+            <div class="fw-semibold">{{ u.username }}</div>
+            <div class="text-muted small text-break">{{ u.email }}</div>
+          </div>
+          <div class="admin-recent-meta text-muted small text-end">
+            {{ u.created_at|user_dt('%d.%m.%Y') if u.created_at else '—' }}
+          </div>
         </div>
+        {% endfor %}
       </div>
     </div>
   </div>
-  <div class="col-12 col-lg-6">
-    <div class="card content-card stat-panel h-100">
-      <div class="card-body">
-        <h6 class="mb-1 fw-semibold">Все встречи — {{ month_label }}</h6>
-        <p class="text-muted small mb-3">По всей платформе.</p>
-        <div class="stat-grid stat-grid-metrics">
-          <div class="stat-item"><span class="stat-num">{{ platform_counts.total }}</span><span class="stat-label">Запросов</span></div>
-          <div class="stat-item"><span class="stat-num text-primary">{{ platform_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
-          <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
-          <div class="stat-item"><span class="stat-num text-danger">{{ platform_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
-          <div class="stat-item"><span class="stat-num text-muted">{{ platform_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
+</section>
+{% endif %}
+
+<section class="admin-section">
+  <div class="card content-card">
+    <div class="card-body">
+      {{ page_header(
+        'Назначайте администраторов — они увидят эту панель. Владелец (email из ADMIN_EMAILS) не может быть понижен.',
+        title='Пользователи и роли'
+      ) }}
+
+      {% for u in members %}
+      <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
+        {{ avatar(u) }}
+        <div class="request-main min-w-0">
+          <div class="fw-semibold d-flex flex-wrap align-items-center gap-2">
+            <span>{{ u.username }}</span>
+            {% if u.id == current_user.id %}
+            <span class="badge text-bg-secondary">Вы</span>
+            {% endif %}
+            {% if u.id in bootstrap_ids %}
+            <span class="badge text-bg-dark">Владелец</span>
+            {% elif u.is_admin %}
+            <span class="badge text-bg-primary admin-badge">Админ</span>
+            {% else %}
+            <span class="badge text-bg-light border">Участник</span>
+            {% endif %}
+          </div>
+          <div class="text-muted small text-break">{{ u.email }}</div>
+          <div class="text-muted small admin-user-meta">
+            В системе с {{ u.created_at|user_dt('%d.%m.%Y') if u.created_at else '—' }}
+            · {{ friend_counts.get(u.id, 0) }} {{ 'друг' if friend_counts.get(u.id, 0) == 1 else 'друга' if friend_counts.get(u.id, 0) in [2,3,4] else 'друзей' }}
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="card content-card">
-  <div class="card-body">
-    {{ page_header('Назначайте администраторов — они увидят эту панель.', title='Пользователи') }}
-
-    {% for u in members %}
-    <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
-      {{ avatar(u) }}
-      <div class="request-main min-w-0">
-        <div class="fw-semibold d-flex flex-wrap align-items-center gap-2">
-          <span>{{ u.username }}</span>
-          {% if u.id == current_user.id %}
-          <span class="badge text-bg-secondary">Вы</span>
-          {% endif %}
+        <div class="request-actions request-actions-row">
           {% if u.id in bootstrap_ids %}
-          <span class="badge text-bg-dark">Владелец</span>
+          <span class="text-muted small">Неизменяемо</span>
+          {% elif u.id == current_user.id %}
+          <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Снимите права у другого админа">
+            Администратор
+          </button>
           {% elif u.is_admin %}
-          <span class="badge text-bg-primary admin-badge">Админ</span>
+          <button type="button" class="btn btn-outline-danger btn-sm admin-role-btn" data-role="member">
+            Снять права
+          </button>
+          {% else %}
+          <button type="button" class="btn btn-primary btn-sm admin-role-btn" data-role="admin">
+            Сделать админом
+          </button>
           {% endif %}
         </div>
-        <div class="text-muted small text-break">{{ u.display_name }}</div>
       </div>
-      <div class="request-actions request-actions-row">
-        {% if u.id in bootstrap_ids %}
-        <span class="text-muted small">Неизменяемо</span>
-        {% elif u.id == current_user.id %}
-        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Снимите права у другого админа">
-          Администратор
-        </button>
-        {% elif u.is_admin %}
-        <button type="button" class="btn btn-outline-danger btn-sm admin-role-btn" data-role="member">
-          Снять права
-        </button>
-        {% else %}
-        <button type="button" class="btn btn-primary btn-sm admin-role-btn" data-role="admin">
-          Сделать админом
-        </button>
-        {% endif %}
-      </div>
+      {% else %}
+      {{ empty_state('bi-shield-lock', 'Нет пользователей', 'Пока никто не зарегистрировался.') }}
+      {% endfor %}
     </div>
-    {% else %}
-    {{ empty_state('bi-shield-lock', 'Нет пользователей', 'Пока никто не зарегистрировался.') }}
-    {% endfor %}
   </div>
-</div>
+</section>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -118,7 +193,7 @@ document.querySelectorAll(".admin-role-btn").forEach(function (btn) {
         success: function () { location.reload(); },
         error: function (xhr) {
           btnBusy(btn, false);
-          showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Не удалось изменить роль");
+          showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Не удалось изменить права");
         },
       });
     });

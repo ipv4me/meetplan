@@ -19,6 +19,7 @@ def _render_meeting_form(form, title, exclude_event_id=None):
         form=form,
         form_title=title,
         exclude_event_id=exclude_event_id,
+        has_friends=bool(meeting_user_choices()),
     )
 
 
@@ -57,12 +58,15 @@ def new_meeting():
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
         )
-        conflicts = find_conflicts([current_user.id, form.to_user.data], start, end)
+        conflicts = find_conflicts(
+            [current_user.id, form.to_user.data], start, end, viewer_id=current_user.id,
+        )
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
             flash(f"Конфликт расписания у: {names}. Выберите другое время.", "danger")
             return render_template(
                 "meeting_form.html", form=form, form_title="Создать встречу",
+                has_friends=bool(meeting_user_choices()),
             )
         create_meeting_event(
             current_user.id, form.to_user.data, form.title.data,
@@ -103,7 +107,8 @@ def edit_meeting(event_id):
             form.date.data, form.start_time.data, form.end_time.data, current_user,
         )
         conflicts = find_conflicts(
-            [current_user.id, form.to_user.data], start, end, exclude_event_id=ev.id,
+            [current_user.id, form.to_user.data], start, end,
+            exclude_event_id=ev.id, viewer_id=current_user.id,
         )
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
@@ -145,6 +150,7 @@ def api_check_conflicts():
     conflicts = find_conflicts(
         [current_user.id, to_user], start, end,
         exclude_event_id=int(exclude) if exclude else None,
+        viewer_id=current_user.id,
     )
     return jsonify({"ok": True, "conflicts": conflicts})
 

@@ -37,7 +37,7 @@
           {% endif %}
         </div>
         {% else %}
-        {{ empty_state('bi-inbox', 'Входящих запросов нет', 'Когда коллега назначит встречу, она появится здесь.') }}
+        {{ empty_state('bi-inbox', 'Входящих запросов нет', 'Когда друг назначит встречу, она появится здесь.') }}
         {% endfor %}
         {{ pagination_nav(incoming_pagination, 'inc_page') }}
       </div>
@@ -59,7 +59,7 @@
           {% endif %}
         </div>
         {% else %}
-        {{ empty_state('bi-send', 'Исходящих запросов нет', 'Создайте встречу с коллегой.', url_for('main.new_meeting'), 'Создать встречу') }}
+        {{ empty_state('bi-send', 'Исходящих запросов нет', 'Создайте встречу с другом.', url_for('main.new_meeting'), 'Создать встречу') }}
         {% endfor %}
         {{ pagination_nav(outgoing_pagination, 'out_page') }}
       </div>

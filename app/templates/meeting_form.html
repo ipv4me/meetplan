@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from '_macros.html' import page_header %}
+{% from '_macros.html' import page_header, empty_state %}
 {% block title %}{{ form_title }} — MeetPlan{% endblock %}
 {% block topbar_title %}{{ form_title }}{% endblock %}
 {% block content %}
 <div class="card content-card form-card">
   <div class="card-body">
-    {{ page_header('Укажите участника, время и тему — коллега получит запрос на подтверждение.') }}
+    {% if has_friends %}
+    {{ page_header('Укажите друга, время и тему — он получит запрос на подтверждение.') }}
     <form method="POST" novalidate class="meeting-form"{% if exclude_event_id %} data-exclude-event-id="{{ exclude_event_id }}"{% endif %}>
       {{ form.hidden_tag() }}
       <div id="conflictWarn" class="alert alert-warning small py-2 d-none mb-3"></div>
@@ -13,7 +14,7 @@
         {{ form.to_user.label(class="form-label") }}
         {{ form.to_user(class="form-select", id="meetingToUser") }}
         <a href="#" class="small text-decoration-none d-none mt-1" id="viewUserCalendarLink">
-          <i class="bi bi-calendar-week"></i> Посмотреть календарь участника
+          <i class="bi bi-calendar-week"></i> Посмотреть календарь друга
         </a>
         {% for e in form.to_user.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
       </div>
@@ -44,6 +45,9 @@
       </div>
       {{ form.submit(class="btn btn-primary w-100") }}
     </form>
+    {% else %}
+    {{ empty_state('bi-people', 'Сначала добавьте друзей', 'Чтобы назначить встречу, найдите человека на странице «Друзья» или отправьте ссылку-приглашение.', url_for('main.friends'), 'Перейти к друзьям') }}
+    {% endif %}
   </div>
 </div>
 {% endblock %}

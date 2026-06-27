@@ -21,9 +21,12 @@
       <a href="{{ url_for('main.friends') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-people" aria-hidden="true"></i> Друзья</a>
       <a href="{{ url_for('main.free_time') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clock-history" aria-hidden="true"></i> Свободное время</a>
     </div>
-    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger mt-3">
-      <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Выйти
-    </a>
+    <form method="POST" action="{{ url_for('main.logout') }}" class="mt-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-danger">
+        <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Выйти
+      </button>
+    </form>
   </div>
 </div>
 {% endblock %}

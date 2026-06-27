@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, time as dt_time
 
 from app import db
 from app.models import Event, EventParticipant, Task, MeetingRequest, User
+from app.friends_service import friend_shares_details_with
 from app.utils import STATUS_REJECTED, STATUS_CANCELLED
 from app.time_utils import local_to_utc, user_timezone, local_today, utcnow, format_dt
 
@@ -87,7 +88,7 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
     return blocks
 
 
-def find_conflicts(user_ids, start, end, exclude_event_id=None):
+def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
     """Конфликты расписания для списка пользователей."""
     conflicts = []
     for uid in user_ids:
@@ -96,11 +97,17 @@ def find_conflicts(user_ids, start, end, exclude_event_id=None):
             continue
         for block in busy_blocks(uid, start, end, exclude_event_id):
             if _overlaps(block["start"], block["end"], start, end):
+                title = block["title"]
+                kind = block["kind"]
+                if viewer_id is not None and uid != viewer_id and kind in ("personal", "task"):
+                    if not friend_shares_details_with(uid, viewer_id):
+                        title = "Занят"
+                        kind = "busy"
                 conflicts.append({
                     "user_id": uid,
                     "username": user.username,
-                    "title": block["title"],
-                    "kind": block["kind"],
+                    "title": title,
+                    "kind": kind,
                     "start": block["start"].isoformat(),
                     "end": block["end"].isoformat(),
                 })

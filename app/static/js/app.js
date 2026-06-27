@@ -105,7 +105,7 @@ function confirmAction(options) {
   });
 }
 
-/* ---------- Ссылка на календарь участника (форма встречи) ---------- */
+/* ---------- Ссылка на календарь друга (форма встречи) ---------- */
 function initMeetingCalendarLink() {
   const select = document.getElementById("meetingToUser");
   const link = document.getElementById("viewUserCalendarLink");

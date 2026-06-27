@@ -201,20 +201,37 @@ def test_invite_link_adds_friend(client, app):
         assert are_friends(host.id, guest.id)
 
 
-def test_friend_search_by_name(client, app):
+def test_friend_suggest_prefix(client, app):
     _register(client, "alice", "alice@test.com")
-    _register(client, "Bob", "bob@test.com")
+    _register(client, "Sasha", "sasha@test.com")
+    _register(client, "Saveliy", "sav@test.com")
     _login(client, "alice@test.com")
-    r = client.post("/api/friends/search", json={"query": "Bob"})
+    r = client.get("/api/friends/suggest?q=Sa")
+    data = r.get_json()
+    assert data["ok"] is True
+    names = {u["username"] for u in data["users"]}
+    assert "Sasha" in names
+    assert "Saveliy" in names
+
+
+def test_friend_request_by_id(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "bob", "bob@test.com")
+    _login(client, "alice@test.com")
+    with app.app_context():
+        bob_id = User.query.filter_by(email="bob@test.com").first().id
+    r = client.post("/api/friends/request", json={"user_id": bob_id})
     assert r.get_json()["ok"] is True
 
 
-def test_friend_search_by_email_fallback(client, app):
+def test_friend_suggest_email(client, app):
     _register(client, "alice", "alice@test.com")
     _register(client, "charlie", "charlie@test.com")
     _login(client, "alice@test.com")
-    r = client.post("/api/friends/search", json={"query": "charlie@test.com"})
-    assert r.get_json()["ok"] is True
+    r = client.get("/api/friends/suggest?q=charlie@")
+    data = r.get_json()
+    assert data["ok"] is True
+    assert any(u["email"] == "charlie@test.com" for u in data["users"])
 
 
 def test_friend_search_request(client, app):
@@ -222,7 +239,9 @@ def test_friend_search_request(client, app):
     _register(client, "bob", "bob@test.com")
 
     _login(client, "alice@test.com")
-    r = client.post("/api/friends/search", json={"query": "bob"})
+    with app.app_context():
+        bob_id = User.query.filter_by(email="bob@test.com").first().id
+    r = client.post("/api/friends/request", json={"user_id": bob_id})
     assert r.get_json()["ok"] is True
 
     _login(client, "bob@test.com")
@@ -240,6 +259,150 @@ def test_friend_search_request(client, app):
         alice = User.query.filter_by(email="alice@test.com").first()
         bob = User.query.filter_by(email="bob@test.com").first()
         assert are_friends(alice.id, bob.id)
+
+
+def test_friend_cancel_outgoing(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "bob", "bob@test.com")
+    _login(client, "alice@test.com")
+    with app.app_context():
+        bob_id = User.query.filter_by(email="bob@test.com").first().id
+    client.post("/api/friends/request", json={"user_id": bob_id})
+    with app.app_context():
+        from app.friends_service import pending_outgoing
+        alice = User.query.filter_by(email="alice@test.com").first()
+        oid = pending_outgoing(alice.id)[0].id
+    r = client.post(f"/api/friends/requests/{oid}/cancel")
+    assert r.get_json()["ok"] is True
+    with app.app_context():
+        from app.models import Friendship
+        assert Friendship.query.count() == 0
+
+
+def test_conflict_masks_private_titles(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        a.timezone = b.timezone = "UTC"
+        db.session.commit()
+        accept_friendship(a.id, b.id)
+        aid, bid = a.id, b.id
+    _login(client, "b@test.com")
+    client.post("/api/events", json={
+        "title": "SECRET THERAPY",
+        "start": "2026-09-01T10:00:00Z",
+        "end": "2026-09-01T11:00:00Z",
+    })
+    client.post(f"/api/friends/{aid}/share-details", json={"share": False})
+    _login(client, "a@test.com")
+    r = client.post("/api/meetings/check-conflicts", json={
+        "to_user": bid,
+        "start": "2026-09-01T10:30:00Z",
+        "end": "2026-09-01T11:30:00Z",
+    })
+    assert r.get_json()["ok"] is True
+    conflicts = r.get_json()["conflicts"]
+    bob_conflicts = [c for c in conflicts if c["user_id"] == bid]
+    assert bob_conflicts
+    assert bob_conflicts[0]["title"] == "Занят"
+    assert bob_conflicts[0]["kind"] == "busy"
+
+
+def test_conflict_shows_private_titles_by_default(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        a.timezone = b.timezone = "UTC"
+        db.session.commit()
+        accept_friendship(a.id, b.id)
+        bid = b.id
+    _login(client, "b@test.com")
+    client.post("/api/events", json={
+        "title": "SECRET THERAPY",
+        "start": "2026-09-01T10:00:00Z",
+        "end": "2026-09-01T11:00:00Z",
+    })
+    _login(client, "a@test.com")
+    r = client.post("/api/meetings/check-conflicts", json={
+        "to_user": bid,
+        "start": "2026-09-01T10:30:00Z",
+        "end": "2026-09-01T11:30:00Z",
+    })
+    bob_conflicts = [c for c in r.get_json()["conflicts"] if c["user_id"] == bid]
+    assert bob_conflicts
+    assert bob_conflicts[0]["title"] == "SECRET THERAPY"
+    assert bob_conflicts[0]["kind"] == "personal"
+
+
+def test_conflict_masks_when_hidden_globally(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        a.timezone = b.timezone = "UTC"
+        db.session.commit()
+        accept_friendship(a.id, b.id)
+        bid = b.id
+    _login(client, "b@test.com")
+    client.post("/api/events", json={
+        "title": "SECRET THERAPY",
+        "start": "2026-09-01T10:00:00Z",
+        "end": "2026-09-01T11:00:00Z",
+    })
+    client.post("/api/friends/hide-calendar-details", json={"hide": True})
+    _login(client, "a@test.com")
+    r = client.post("/api/meetings/check-conflicts", json={
+        "to_user": bid,
+        "start": "2026-09-01T10:30:00Z",
+        "end": "2026-09-01T11:30:00Z",
+    })
+    bob_conflicts = [c for c in r.get_json()["conflicts"] if c["user_id"] == bid]
+    assert bob_conflicts
+    assert bob_conflicts[0]["title"] == "Занят"
+    assert bob_conflicts[0]["kind"] == "busy"
+
+
+def test_friend_calendar_share_details(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        accept_friendship(a.id, b.id)
+        aid, bid = a.id, b.id
+    _login(client, "b@test.com")
+    client.post("/api/events", json={
+        "title": "Dentist",
+        "start": "2026-09-02T09:00:00Z",
+        "end": "2026-09-02T10:00:00Z",
+    })
+    _login(client, "a@test.com")
+    r = client.get(f"/api/users/{bid}/events")
+    titles = [e["title"] for e in r.get_json()]
+    assert "Dentist" in titles
+    _login(client, "b@test.com")
+    client.post(f"/api/friends/{aid}/share-details", json={"share": False})
+    _login(client, "a@test.com")
+    r = client.get(f"/api/users/{bid}/events")
+    titles = [e["title"] for e in r.get_json()]
+    assert "Dentist" not in titles
+    assert "Занят" in titles
+
+
+def test_meeting_new_without_friends(client):
+    _register(client, "solo", "solo@test.com")
+    r = client.get("/meeting/new")
+    assert r.status_code == 200
+    assert "Сначала добавьте друзей".encode() in r.data or "друзей" in r.data.decode().lower()
 
 
 def test_pending_request_guard(client, app):

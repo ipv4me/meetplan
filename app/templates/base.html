@@ -65,9 +65,12 @@
       </a>
       {% endif %}
     </nav>
-    <a href="{{ url_for('main.logout') }}" class="nav-link logout mt-auto">
-      <i class="bi bi-box-arrow-right"></i> <span>Выход</span>
-    </a>
+    <form method="POST" action="{{ url_for('main.logout') }}" class="mt-auto">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="nav-link logout border-0 bg-transparent w-100 text-start">
+        <i class="bi bi-box-arrow-right"></i> <span>Выход</span>
+      </button>
+    </form>
   </aside>
 
   <div class="main-area">
@@ -157,9 +160,12 @@
       </a>
       {% endif %}
     </nav>
-    <a href="{{ url_for('main.logout') }}" class="nav-link logout mt-auto">
-      <i class="bi bi-box-arrow-right"></i> <span>Выход</span>
-    </a>
+    <form method="POST" action="{{ url_for('main.logout') }}" class="mt-auto">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="nav-link logout border-0 bg-transparent w-100 text-start">
+        <i class="bi bi-box-arrow-right"></i> <span>Выход</span>
+      </button>
+    </form>
   </div>
 </div>
 

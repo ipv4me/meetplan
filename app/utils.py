@@ -4,6 +4,7 @@ from datetime import datetime, time as dt_time, timedelta
 
 from app import db
 from app.models import Event, EventParticipant, MeetingRequest, Task, User
+from app.friends_service import friend_shares_details_with
 from app.time_utils import utc_iso, task_block_local_iso, user_timezone
 
 # Насыщенные цвета (легенда, левая полоса события)
@@ -53,12 +54,15 @@ def events_for_user(user_id, viewer_id=None):
     """Список событий пользователя в формате FullCalendar."""
     result = []
     is_self = viewer_id is None or viewer_id == user_id
+    can_see_details = is_self or friend_shares_details_with(user_id, viewer_id)
     owner = db.session.get(User, user_id)
 
     personal = Event.query.filter_by(created_by=user_id, event_type="personal").all()
     for ev in personal:
         if is_self:
             result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=True))
+        elif can_see_details:
+            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=False))
         else:
             result.append(_to_fc_busy(ev))
 
@@ -75,13 +79,16 @@ def events_for_user(user_id, viewer_id=None):
             continue
         result.append(_to_fc(p.event, status_id, is_owner=(p.event.created_by == user_id)))
 
-    if is_self and owner:
-        result.extend(_tasks_to_fc(owner))
+    if owner:
+        if is_self:
+            result.extend(_tasks_to_fc(owner))
+        elif can_see_details:
+            result.extend(_tasks_to_fc(owner, for_viewer=True))
 
     return result
 
 
-def _tasks_to_fc(user):
+def _tasks_to_fc(user, for_viewer=False):
     """Задачи с датой — блоки в календаре (локальное wall-clock время, без UTC-сдвига)."""
     items = []
     tasks = (
@@ -107,8 +114,8 @@ def _tasks_to_fc(user):
                 "taskId": task.id,
                 "statusId": STATUS_CONFIRMED,
                 "statusLabel": "Задача",
-                "isOwner": True,
-                "canDelete": True,
+                "isOwner": not for_viewer,
+                "canDelete": not for_viewer,
                 "accent": border,
             },
         })

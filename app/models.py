@@ -33,6 +33,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(16), default="member", nullable=False)
     timezone = db.Column(db.String(64), default="Europe/Moscow", nullable=False)
     invite_token = db.Column(db.String(32), unique=True, index=True)
+    hide_calendar_details_from_friends = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=utcnow)
 
     organization = db.relationship("Organization")
@@ -80,6 +81,9 @@ class Friendship(db.Model):
     addressee_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     status = db.Column(db.String(16), nullable=False, default="pending")
     source = db.Column(db.String(16), default="search")
+    # Владелец календаря разрешает другу видеть названия личных дел и задач (по умолчанию — да)
+    requester_shares_details = db.Column(db.Boolean, nullable=False, default=True)
+    addressee_shares_details = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=utcnow)
 
     requester = db.relationship("User", foreign_keys=[requester_id])
