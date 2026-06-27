@@ -1,0 +1,346 @@
+:root {
+  --brand: #4f46e5;
+  --brand-dark: #4338ca;
+  --sidebar-w: 250px;
+  --topbar-h: 56px;
+  --bottom-h: 64px;
+
+  /* поверхности (светлая тема) */
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --sidebar-grad: linear-gradient(180deg, #4338ca 0%, #312e81 100%);
+}
+
+/* тёмная тема */
+[data-bs-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #334155;
+  --sidebar-grad: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+}
+
+/* ===================== АВТОРИЗАЦИЯ ===================== */
+.auth-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  padding: 16px;
+}
+.auth-card {
+  background: #fff;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.2);
+}
+.auth-brand { font-size: 1.5rem; font-weight: 700; color: var(--brand); }
+.auth-brand i { margin-right: 6px; }
+.auth-subtitle { color: #6b7280; font-size: .9rem; margin-bottom: 24px; }
+
+/* ===================== КАРКАС ===================== */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* Сайдбар (ПК) */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--sidebar-grad);
+  color: #fff;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  padding: 18px 14px;
+  z-index: 1030;
+}
+.sidebar-brand {
+  font-size: 1.3rem; font-weight: 700; margin-bottom: 22px; padding: 4px 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sidebar-brand i { color: #c7d2fe; font-size: 1.4rem; }
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px; padding: 10px; margin-bottom: 18px;
+}
+.sidebar-user-info .name { font-weight: 600; font-size: .9rem; line-height: 1.1; }
+.sidebar-user-info .email { font-size: .72rem; opacity: .8; word-break: break-all; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+.sidebar .nav-link,
+.offcanvas .nav-link {
+  display: flex; align-items: center; gap: 12px;
+  color: rgba(255,255,255,.85);
+  padding: 10px 12px; border-radius: 10px;
+  text-decoration: none; font-size: .92rem;
+}
+.sidebar .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
+.sidebar .nav-link:hover { background: rgba(255,255,255,.12); color: #fff; }
+.sidebar .nav-link.active { background: var(--brand); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(79,70,229,.45); }
+.sidebar .nav-link.logout { color: rgba(255,255,255,.85); }
+
+/* статус «Онлайн» под именем */
+.status-online { font-size: .72rem; color: rgba(255,255,255,.75); display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+
+/* offcanvas (мобильное меню) — тема-зависимые цвета */
+.offcanvas-body .nav-link { color: var(--text); }
+.offcanvas-body .nav-link i { color: var(--brand); width: 20px; text-align: center; }
+.offcanvas-body .nav-link:hover { background: rgba(99,102,241,.1); }
+.offcanvas-body .nav-link.active { background: rgba(99,102,241,.15); color: var(--brand); font-weight: 600; }
+.offcanvas-body .nav-link.logout { color: var(--text); }
+[data-bs-theme="dark"] .offcanvas-body .nav-link i { color: #a5b4fc; }
+[data-bs-theme="dark"] .offcanvas-body .nav-link.active { color: #c7d2fe; }
+/* блок пользователя в тёмном меню */
+[data-bs-theme="dark"] .offcanvas-body .sidebar-user { background: rgba(255,255,255,.06); }
+.offcanvas-body .sidebar-user .email { color: var(--muted); }
+.offcanvas-body .sidebar-user .name { color: var(--text); }
+
+/* Основная область */
+.main-area {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Верхняя плашка */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+  position: sticky; top: 0; z-index: 1020;
+}
+.topbar-title { font-weight: 600; }
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.btn-icon {
+  background: none; border: none; font-size: 1.25rem; color: var(--muted);
+  cursor: pointer; text-decoration: none; padding: 4px;
+}
+.dot {
+  position: absolute; top: -4px; right: -6px;
+  background: #ef4444; color: #fff; font-size: .65rem;
+  min-width: 16px; height: 16px; line-height: 16px; text-align: center;
+  border-radius: 999px; padding: 0 4px;
+}
+
+/* Аватары */
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #c7d2fe; color: var(--brand-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; flex-shrink: 0;
+}
+.avatar-sm { width: 32px; height: 32px; font-size: .85rem; }
+.avatar-lg { width: 72px; height: 72px; font-size: 1.6rem; }
+img.avatar { object-fit: cover; }
+.topbar-actions .avatar-sm { background: #e0e7ff; }
+
+/* Контент */
+.content { padding: 18px; flex: 1; }
+.content-card { border: none; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); background: var(--surface); }
+.form-card { max-width: 560px; margin: 0 auto; }
+.flash-area { padding: 0 18px; margin-top: 12px; }
+.flash-area:empty { margin: 0; }
+
+/* ===================== КАЛЕНДАРЬ ===================== */
+.fc .fc-button-primary {
+  background: var(--brand); border-color: var(--brand);
+  text-transform: none; font-weight: 500; box-shadow: none;
+}
+.fc .fc-button-primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active { background: var(--brand-dark); border-color: var(--brand-dark); }
+/* «лёгкие» кнопки навигации (today/prev/next) */
+.fc .fc-today-button, .fc .fc-prev-button, .fc .fc-next-button {
+  background: transparent; color: var(--text); border-color: var(--border);
+}
+.fc .fc-today-button:disabled { background: transparent; color: var(--muted); border-color: var(--border); opacity: 1; }
+.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 14px; }
+.fc .fc-toolbar-title { font-size: 1.15rem; font-weight: 700; }
+
+/* шапка дня: день недели + число (кружок на «сегодня») */
+.fc-dayhead { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; }
+.fc-dayhead .wd { font-size: .72rem; color: var(--muted); text-transform: capitalize; }
+.fc-dayhead .dnum {
+  width: 30px; height: 30px; line-height: 30px; text-align: center;
+  border-radius: 50%; font-weight: 600; font-size: .95rem; color: var(--text);
+}
+.fc-dayhead .dnum.today { background: var(--brand); color: #fff; }
+.fc .fc-col-header-cell-cushion { text-decoration: none; padding: 0; width: 100%; }
+.fc .fc-col-header-cell { border-bottom: none; }
+.fc .fc-timegrid-slot { height: 2em; }          /* мин. высота строки; expandRows растянет */
+.fc .fc-timegrid-slot-label { font-size: .78rem; color: var(--muted); }
+/* пастельные события с цветной левой полосой — как на макете */
+.fc-event {
+  cursor: pointer;
+  border-width: 1px 1px 1px 4px !important;
+  border-radius: 6px;
+  padding: 1px 2px;
+  font-weight: 500;
+}
+.fc-v-event .fc-event-main { padding: 1px 3px; }
+/* компактный контент события: каждая строка в одну линию с многоточием */
+.fc .ev-content { overflow: hidden; line-height: 1.2; }
+.fc .ev-time { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc .ev-title { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* вид «Список» (повестка) — читаемо на телефоне */
+.fc .fc-list-event-title, .fc .fc-list-event-time,
+.fc .fc-list-day-text, .fc .fc-list-day-side-text { color: var(--text); }
+.fc .fc-list-event-title a { color: var(--text); }
+.fc .fc-list-event-dot { border-width: 5px; }
+[data-bs-theme="dark"] .fc-list-day-cushion { background: #1e293b !important; }
+[data-bs-theme="dark"] .fc-theme-standard .fc-list { border-color: var(--border); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .85rem; color: var(--muted); }
+.legend .dot-legend {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ===================== ВИДЖЕТЫ ДАШБОРДА ===================== */
+.widget-title {
+  font-weight: 700; color: var(--brand); margin-bottom: 14px; font-size: 1rem;
+}
+[data-bs-theme="dark"] .widget-title { color: #a5b4fc; }
+.dashboard-widgets .form-label { margin-bottom: 2px; }
+
+/* ===================== ЗАПРОСЫ ===================== */
+.request-card {
+  display: flex; align-items: flex-start; gap: 12px;
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; margin-bottom: 12px;
+}
+.request-actions { display: flex; flex-direction: column; gap: 6px; }
+.status-badge { font-weight: 600; }
+
+/* тема-зависимые бейджи статусов (читаемы и в светлой, и в тёмной теме) */
+.st-pending   { background: #ede9fe; color: #5b21b6; }
+.st-confirmed { background: #dbeafe; color: #1e40af; }
+.st-rejected  { background: #fee2e2; color: #991b1b; }
+.st-personal  { background: #fef3c7; color: #92400e; }
+[data-bs-theme="dark"] .st-pending   { background: #4c1d95; color: #ddd6fe; }
+[data-bs-theme="dark"] .st-confirmed { background: #1e3a8a; color: #bfdbfe; }
+[data-bs-theme="dark"] .st-rejected  { background: #7f1d1d; color: #fecaca; }
+[data-bs-theme="dark"] .st-personal  { background: #78350f; color: #fde68a; }
+.nav-tabs .nav-link { color: var(--muted); }
+.nav-tabs .nav-link:hover { color: var(--text); }
+.nav-tabs .nav-link.active { color: var(--brand); font-weight: 600; background: transparent; }
+/* в тёмной теме — светлее, чтобы читалось */
+[data-bs-theme="dark"] .nav-tabs { border-bottom-color: var(--border); }
+[data-bs-theme="dark"] .nav-tabs .nav-link { color: #cbd5e1; }
+[data-bs-theme="dark"] .nav-tabs .nav-link:hover { color: #fff; }
+[data-bs-theme="dark"] .nav-tabs .nav-link.active {
+  color: #c7d2fe; background: rgba(99,102,241,.15);
+  border-color: var(--border) var(--border) transparent;
+}
+
+/* ===================== МОИ ДЕЛА ===================== */
+.task-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 4px; border-bottom: 1px solid var(--border);
+}
+.task-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* добавление дела */
+.todo-add { display: flex; gap: 8px; }
+.todo-add .todo-date { max-width: 160px; }
+
+/* элемент чек-листа */
+.todo-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 4px; border-bottom: 1px solid var(--border);
+}
+.todo-item:last-child { border-bottom: none; }
+.todo-check { width: 20px; height: 20px; cursor: pointer; flex-shrink: 0; margin: 0; }
+.todo-title { font-weight: 500; }
+.todo-item.done .todo-title { text-decoration: line-through; color: var(--muted); }
+.todo-item.done .task-dot { opacity: .4; }
+.todo-del { color: var(--muted); font-size: 1rem; opacity: .6; }
+.todo-del:hover { color: #ef4444; opacity: 1; }
+
+@media (max-width: 575.98px) {
+  .todo-add { flex-wrap: wrap; }
+  .todo-add .form-control:not(.todo-date) { flex: 1 1 100%; }
+  .todo-add .todo-date { flex: 1; max-width: none; }
+}
+
+/* ===================== НИЖНЯЯ НАВИГАЦИЯ (телефон) ===================== */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--bottom-h);
+  background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; z-index: 1030;
+}
+.bottom-nav a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; color: #9ca3af; text-decoration: none; font-size: 1.2rem;
+}
+.bottom-nav a small { font-size: .68rem; }
+.bottom-nav a.active { color: var(--brand); }
+
+/* FAB */
+.fab {
+  position: fixed; right: 18px; bottom: calc(var(--bottom-h) + 14px);
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; text-decoration: none;
+  box-shadow: 0 6px 16px rgba(79,70,229,.4); z-index: 1031;
+}
+
+/* ===================== АДАПТИВ ===================== */
+@media (max-width: 767.98px) {
+  .main-area { margin-left: 0; }
+  .content { padding: 12px; padding-bottom: calc(var(--bottom-h) + 20px); }
+  .flash-area { padding: 0 12px; }
+  /* тулбар календаря: аккуратно в три строки по центру */
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .fc .fc-toolbar-chunk { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
+  .fc .fc-toolbar-title { font-size: 1.05rem; }
+  .fc .fc-button { padding: .35em .6em; font-size: .85rem; }
+  .fc .fc-timegrid-slot-label { font-size: .7rem; }
+}
+
+/* ===================== ТЁМНАЯ ТЕМА: точечные правки ===================== */
+[data-bs-theme="dark"] #calendar {
+  --fc-border-color: #334155;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: #0f172a;
+  --fc-today-bg-color: rgba(99, 102, 241, .15);
+  --fc-now-indicator-color: #f87171;
+  --fc-list-event-hover-bg-color: #1e293b;
+}
+[data-bs-theme="dark"] .fc { color: var(--text); }
+[data-bs-theme="dark"] .fc .fc-col-header-cell-cushion,
+[data-bs-theme="dark"] .fc .fc-timegrid-axis-cushion,
+[data-bs-theme="dark"] .fc .fc-daygrid-day-number { color: var(--muted); }
+
+/* активный пункт меню в тёмном сайдбаре */
+[data-bs-theme="dark"] .sidebar .nav-link.active { background: var(--brand); color: #fff; }
+
+/* мягкая тень карточек на тёмном фоне */
+[data-bs-theme="dark"] .content-card { box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+
+/* бейдж-аватар чуть приглушаем */
+[data-bs-theme="dark"] .avatar { background: #312e81; color: #c7d2fe; }

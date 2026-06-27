@@ -1,0 +1,8 @@
+{# Аватар пользователя: фото, если загружено, иначе кружок с буквой #}
+{% macro avatar(user, extra='') -%}
+{%- if user and user.avatar -%}
+  <img class="avatar {{ extra }}" src="{{ url_for('static', filename=user.avatar) }}" alt="{{ user.username }}">
+{%- else -%}
+  <div class="avatar {{ extra }}">{{ (user.username[0]|upper) if user else '?' }}</div>
+{%- endif -%}
+{%- endmacro %}

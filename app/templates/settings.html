@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar %}
+{% block title %}Настройки — MeetPlan{% endblock %}
+{% block topbar_title %}Настройки{% endblock %}
+{% block content %}
+<div class="card content-card form-card mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Профиль</h5>
+    <div class="d-flex align-items-center gap-3 mb-3">
+      {{ avatar(current_user, 'avatar-lg') }}
+      <div>
+        <div class="fw-semibold">{{ current_user.username }}</div>
+        <div class="text-muted small">{{ current_user.email }}</div>
+      </div>
+    </div>
+    <label class="form-label fw-semibold mb-1">
+      <i class="bi bi-image me-1"></i>Аватар профиля
+    </label>
+    <p class="text-muted small mb-2">Загрузите фото — оно появится в меню, профиле и карточках. PNG, JPG, GIF или WEBP, до 3 МБ.</p>
+    <form method="POST" action="{{ url_for('main.upload_avatar') }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+      {{ avatar_form.csrf_token }}
+      {{ avatar_form.avatar(class="form-control form-control-sm", style="max-width:260px", accept="image/*") }}
+      {{ avatar_form.submit(class="btn btn-primary btn-sm") }}
+      {% if current_user.avatar %}
+      <button type="submit" form="delAvatar" class="btn btn-outline-danger btn-sm">Удалить фото</button>
+      {% endif %}
+    </form>
+    {% if current_user.avatar %}
+    <form method="POST" id="delAvatar" action="{{ url_for('main.delete_avatar') }}">{{ avatar_form.csrf_token }}</form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card content-card form-card mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Смена пароля</h5>
+    <form method="POST" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.old_password.label(class="form-label") }}
+        {{ form.old_password(class="form-control") }}
+        {% for e in form.old_password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="mb-3">
+        {{ form.new_password.label(class="form-label") }}
+        {{ form.new_password(class="form-control") }}
+        {% for e in form.new_password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="mb-3">
+        {{ form.new_password2.label(class="form-label") }}
+        {{ form.new_password2(class="form-control") }}
+        {% for e in form.new_password2.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+
+<div class="card content-card form-card mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Оформление</h5>
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch">
+      <label class="form-check-label" for="themeSwitch">Тёмная тема</label>
+    </div>
+  </div>
+</div>
+
+<div class="card content-card form-card">
+  <div class="card-body">
+    <h5 class="mb-3">Уведомления</h5>
+    <p class="text-muted small mb-2">Разрешите браузерные уведомления, чтобы получать оповещения о новых запросах на встречу.</p>
+    <button class="btn btn-outline-primary btn-sm" id="enableNotif">
+      <i class="bi bi-bell"></i> Включить уведомления
+    </button>
+    <span class="small ms-2" id="notifState"></span>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const stEl = document.getElementById('notifState');
+  function showState(){
+    if (!('Notification' in window)) { stEl.textContent='Браузер не поддерживает уведомления'; return; }
+    stEl.textContent = Notification.permission === 'granted' ? 'Включены ✓'
+      : (Notification.permission === 'denied' ? 'Запрещены в браузере' : 'Не включены');
+  }
+  showState();
+  document.getElementById('enableNotif').addEventListener('click', function(){
+    if ('Notification' in window) Notification.requestPermission().then(showState);
+  });
+</script>
+{% endblock %}

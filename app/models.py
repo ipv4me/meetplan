@@ -1,0 +1,127 @@
+from datetime import datetime
+
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from app import db
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    avatar = db.Column(db.String(256))  # путь к файлу относительно static/ (или None)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Все события, созданные пользователем
+    events = db.relationship(
+        "Event", backref="creator", lazy="dynamic",
+        foreign_keys="Event.created_by",
+    )
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+
+class Status(db.Model):
+    __tablename__ = "statuses"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(32), nullable=False)
+    color = db.Column(db.String(16), nullable=False)
+
+    def __repr__(self):
+        return f"<Status {self.name}>"
+
+
+class Event(db.Model):
+    __tablename__ = "events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(140), nullable=False)
+    description = db.Column(db.Text)
+    start_datetime = db.Column(db.DateTime, nullable=False)
+    end_datetime = db.Column(db.DateTime, nullable=False)
+    # 'personal' — личное дело, 'meeting' — встреча
+    event_type = db.Column(db.String(16), nullable=False, default="personal")
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    participants = db.relationship(
+        "EventParticipant", backref="event", lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    request = db.relationship(
+        "MeetingRequest", backref="event", uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self):
+        return f"<Event {self.title}>"
+
+
+class MeetingRequest(db.Model):
+    __tablename__ = "meeting_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("events.id"), nullable=False)
+    from_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    to_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status_id = db.Column(db.Integer, db.ForeignKey("statuses.id"), nullable=False, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    from_user = db.relationship("User", foreign_keys=[from_user_id])
+    to_user = db.relationship("User", foreign_keys=[to_user_id])
+    status = db.relationship("Status")
+
+    def __repr__(self):
+        return f"<MeetingRequest {self.id} status={self.status_id}>"
+
+
+class EventParticipant(db.Model):
+    __tablename__ = "event_participants"
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("events.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status_id = db.Column(db.Integer, db.ForeignKey("statuses.id"), nullable=False, default=1)
+
+    user = db.relationship("User")
+    status = db.relationship("Status")
+
+
+class Task(db.Model):
+    """Личная задача (todo) — чек-лист «Мои дела». В календарь НЕ выводится."""
+
+    __tablename__ = "tasks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    title = db.Column(db.String(140), nullable=False)
+    due_date = db.Column(db.Date)  # необязательная дата
+    done = db.Column(db.Boolean, default=False, nullable=False)
+    color = db.Column(db.String(16), default="#3b82f6")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Task {self.title} done={self.done}>"
+
+
+class UserAvailability(db.Model):
+    __tablename__ = "user_availability"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+    is_busy = db.Column(db.Boolean, default=True)

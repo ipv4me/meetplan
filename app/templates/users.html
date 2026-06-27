@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar %}
+{% block title %}Участники — MeetPlan{% endblock %}
+{% block topbar_title %}Участники{% endblock %}
+{% block content %}
+<div class="card content-card">
+  <div class="card-body">
+    <h5 class="mb-3">Участники системы</h5>
+    {% for u in users %}
+    <div class="request-card">
+      {{ avatar(u) }}
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ u.username }}</div>
+        <div class="text-muted small">{{ u.email }}</div>
+      </div>
+      <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-calendar-plus"></i> Назначить встречу
+      </a>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-4">Других пользователей пока нет. Зарегистрируйте второго, чтобы назначать встречи.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

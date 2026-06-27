@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar %}
+{% block title %}Запросы — MeetPlan{% endblock %}
+{% block topbar_title %}Запросы{% endblock %}
+{% block content %}
+<div class="card content-card">
+  <div class="card-body">
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#incoming">
+          Входящие {% if pending_count %}<span class="badge bg-primary">{{ pending_count }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#outgoing">Отправленные</button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <!-- Входящие -->
+      <div class="tab-pane fade show active" id="incoming">
+        {% for r in incoming %}
+        <div class="request-card" id="req-{{ r.id }}">
+          {{ avatar(r.from_user) }}
+          <div class="flex-grow-1">
+            <div class="fw-semibold">{{ r.from_user.username }}</div>
+            <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+            <div class="small">{{ r.event.title }}</div>
+            <span class="badge status-badge mt-1 {{ 'st-pending' if r.status_id == 1 else 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}"
+                  data-status="{{ r.status_id }}">
+              {% if r.status_id == 1 %}Ожидает подтверждения{% elif r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
+            </span>
+          </div>
+          {% if r.status_id == 1 %}
+          <div class="request-actions">
+            <button class="btn btn-success btn-sm" onclick="respondRequest({{ r.id }}, 'confirm')">Подтвердить</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="respondRequest({{ r.id }}, 'reject')">Отклонить</button>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Входящих запросов нет.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Отправленные -->
+      <div class="tab-pane fade" id="outgoing">
+        {% for r in outgoing %}
+        <div class="request-card">
+          {{ avatar(r.to_user) }}
+          <div class="flex-grow-1">
+            <div class="fw-semibold">{{ r.to_user.username }}</div>
+            <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+            <div class="small">{{ r.event.title }}</div>
+            <span class="badge mt-1 {{ 'st-pending' if r.status_id == 1 else 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}">
+              {% if r.status_id == 1 %}Ожидает{% elif r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
+            </span>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">Вы пока не отправляли запросов.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

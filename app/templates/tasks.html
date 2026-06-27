@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Мои дела — MeetPlan{% endblock %}
+{% block topbar_title %}Мои дела{% endblock %}
+{% block content %}
+<div class="card content-card">
+  <div class="card-body">
+    <h5 class="mb-3">Мои дела</h5>
+
+    <!-- Добавление дела (без вывода в календарь) -->
+    <div class="todo-add">
+      <input type="text" class="form-control" id="taskTitle" placeholder="Новое дело…" autocomplete="off">
+      <input type="date" class="form-control todo-date" id="taskDate" title="Дата (необязательно)">
+      <button class="btn btn-primary" id="taskAdd"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="text-danger small mt-1" id="taskError"></div>
+
+    <!-- Список дел -->
+    <div id="taskList" class="mt-3">
+      {% for t in tasks %}
+      <div class="todo-item {% if t.done %}done{% endif %}" data-id="{{ t.id }}">
+        <input class="form-check-input todo-check" type="checkbox" {% if t.done %}checked{% endif %}>
+        <span class="task-dot" style="background:{{ t.color }}"></span>
+        <div class="flex-grow-1">
+          <div class="todo-title">{{ t.title }}</div>
+          {% if t.due_date %}<div class="text-muted small">{{ t.due_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+        </div>
+        <button class="btn-icon todo-del" title="Удалить"><i class="bi bi-trash"></i></button>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-muted text-center py-4 {% if tasks %}d-none{% endif %}" id="taskEmpty">
+      Список пуст. Добавьте первое дело!
+    </p>
+  </div>
+</div>
+{% endblock %}

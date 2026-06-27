@@ -1,0 +1,30 @@
+{% extends "auth_base.html" %}
+{% block title %}Регистрация — MeetPlan{% endblock %}
+{% block content %}
+<h4 class="mb-3">Регистрация</h4>
+<form method="POST" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="mb-3">
+    {{ form.username.label(class="form-label") }}
+    {{ form.username(class="form-control", placeholder="Иван Иванов") }}
+    {% for e in form.username.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="mb-3">
+    {{ form.email.label(class="form-label") }}
+    {{ form.email(class="form-control", placeholder="you@example.com") }}
+    {% for e in form.email.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="mb-3">
+    {{ form.password.label(class="form-label") }}
+    {{ form.password(class="form-control") }}
+    {% for e in form.password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="mb-3">
+    {{ form.password2.label(class="form-label") }}
+    {{ form.password2(class="form-control") }}
+    {% for e in form.password2.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+  </div>
+  {{ form.submit(class="btn btn-primary w-100") }}
+</form>
+<p class="text-center mt-3 mb-0 small">Уже есть аккаунт? <a href="{{ url_for('main.login') }}">Войти</a></p>
+{% endblock %}

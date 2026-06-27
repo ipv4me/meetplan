@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Уведомления — MeetPlan{% endblock %}
+{% block topbar_title %}Уведомления{% endblock %}
+{% block content %}
+<div class="card content-card">
+  <div class="card-body">
+    <h5 class="mb-3">Уведомления</h5>
+    {% for r in incoming %}
+    <div class="task-row">
+      <span class="task-dot" style="background:{{ r.status.color }}"></span>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ r.from_user.username }} приглашает на встречу</div>
+        <div class="small">{{ r.event.title }}</div>
+        <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+      </div>
+      {% if r.status_id == 1 %}
+      <a href="{{ url_for('main.requests_page') }}" class="btn btn-sm btn-primary">Ответить</a>
+      {% else %}
+      <span class="badge {{ 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}">
+        {% if r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
+      </span>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-4">Уведомлений пока нет.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
