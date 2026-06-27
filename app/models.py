@@ -6,6 +6,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 
 
+class Organization(db.Model):
+    __tablename__ = "organizations"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Organization {self.name}>"
+
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
@@ -16,7 +27,11 @@ class User(UserMixin, db.Model):
     avatar = db.Column(db.String(256))  # устар.: путь в static/ (миграция в avatar_data)
     avatar_data = db.Column(db.LargeBinary)
     avatar_mimetype = db.Column(db.String(64))
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"))
+    role = db.Column(db.String(16), default="member", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    organization = db.relationship("Organization")
 
     # Все события, созданные пользователем
     events = db.relationship(
@@ -33,6 +48,10 @@ class User(UserMixin, db.Model):
     @property
     def has_avatar(self):
         return bool(self.avatar_data)
+
+    @property
+    def is_admin(self):
+        return self.role == "admin"
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -106,7 +125,7 @@ class EventParticipant(db.Model):
 
 
 class Task(db.Model):
-    """Личная задача (todo) — чек-лист «Мои дела». В календарь НЕ выводится."""
+    """Личная задача — чек-лист «Мои дела», с датой показывается в календаре."""
 
     __tablename__ = "tasks"
 

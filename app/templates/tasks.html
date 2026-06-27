@@ -6,12 +6,25 @@
   <div class="card-body">
     <h5 class="mb-3">Мои дела</h5>
 
-    <!-- Добавление дела (без вывода в календарь) -->
+    <p class="text-muted small mb-3">Дела с датой отображаются в вашем календаре.</p>
+
+    <!-- Добавление дела -->
     <div class="todo-add">
-      <input type="text" class="form-control" id="taskTitle" placeholder="Новое дело…" autocomplete="off">
-      <input type="date" class="form-control todo-date" id="taskDate" title="Дата (необязательно)">
-      <input type="time" class="form-control todo-time" id="taskTime" title="Время (необязательно)">
-      <button class="btn btn-primary" id="taskAdd"><i class="bi bi-plus-lg"></i></button>
+      <div class="todo-field todo-field-full">
+        <label for="taskTitle" class="form-label">Название</label>
+        <input type="text" class="form-control" id="taskTitle" placeholder="Например: Позвонить клиенту" autocomplete="off">
+      </div>
+      <div class="todo-add-row">
+        <div class="todo-field">
+          <label for="taskDate" class="form-label">Дата <span class="fw-normal opacity-75">(необяз.)</span></label>
+          <input type="date" class="form-control todo-date" id="taskDate">
+        </div>
+        <div class="todo-field">
+          <label for="taskTime" class="form-label">Время <span class="fw-normal opacity-75">(необяз.)</span></label>
+          <input type="time" class="form-control todo-time" id="taskTime">
+        </div>
+        <button class="btn btn-primary" id="taskAdd" title="Добавить"><i class="bi bi-plus-lg"></i></button>
+      </div>
     </div>
     <div class="text-danger small mt-1" id="taskError"></div>
 

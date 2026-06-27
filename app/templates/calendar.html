@@ -10,10 +10,45 @@
     <div id="calendar"></div>
     <div class="legend mt-3">
       <span><i class="dot-legend" style="background:#f59e0b"></i> Личные дела</span>
+      <span><i class="dot-legend" style="background:#22c55e"></i> Задачи</span>
       <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
       <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
       <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
+      <span><i class="dot-legend" style="background:#6b7280"></i> Отменённые</span>
     </div>
+  </div>
+</div>
+
+<!-- Быстрая встреча (мобильный) -->
+<div class="card content-card mb-3 d-md-none mobile-meeting-card">
+  <div class="card-body">
+    <h6 class="widget-title">Быстрая встреча</h6>
+    <form method="POST" action="{{ url_for('main.new_meeting') }}" id="mobileMeetingForm" class="widget-form">
+      {{ meeting_form.csrf_token }}
+      <div class="mb-2">
+        <label class="form-label small">С кем</label>
+        <select name="to_user" class="form-select form-select-sm" required>
+          <option value="" disabled selected>Выберите</option>
+          {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-7">
+          <label class="form-label small">Дата</label>
+          <input type="date" name="date" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-5">
+          <label class="form-label small">Время</label>
+          <input type="time" name="start_time" class="form-control form-control-sm" value="14:00" required>
+        </div>
+      </div>
+      <input type="hidden" name="end_time" value="15:00" id="mobEndTime">
+      <div class="mb-2">
+        <label class="form-label small">Тема</label>
+        <input type="text" name="title" class="form-control form-control-sm" placeholder="Тема встречи" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm w-100">Отправить запрос</button>
+    </form>
   </div>
 </div>
 
@@ -134,6 +169,7 @@
         <p class="mb-0 text-muted" id="evDesc"></p>
       </div>
       <div class="modal-footer">
+        <button class="btn btn-outline-secondary" id="evCancel" style="display:none">Отменить встречу</button>
         <button class="btn btn-outline-danger" id="evDelete"><i class="bi bi-trash"></i> Удалить</button>
         <a class="btn btn-outline-primary" id="evEdit" href="#"><i class="bi bi-pencil"></i> Изменить</a>
         <button class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>

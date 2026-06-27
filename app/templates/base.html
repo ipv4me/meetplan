@@ -38,6 +38,8 @@
     ('main.new_meeting', 'bi-people', 'Встречи', false),
     ('main.requests_page', 'bi-bell', 'Запросы', true),
     ('main.users', 'bi-person-lines-fill', 'Пользователи', false),
+    ('main.free_time', 'bi-clock-history', 'Свободное время', false),
+    ('main.stats', 'bi-bar-chart', 'Статистика', false),
     ('main.settings', 'bi-gear', 'Настройки', false)
   ] %}
   <aside class="sidebar d-none d-md-flex flex-column">
@@ -141,6 +143,8 @@
       </a>
       {% endfor %}
       <a href="{{ url_for('main.new_meeting') }}" class="nav-link"><i class="bi bi-plus-circle"></i> <span>Создать встречу</span></a>
+      <a href="{{ url_for('main.free_time') }}" class="nav-link"><i class="bi bi-clock-history"></i> <span>Свободное время</span></a>
+      <a href="{{ url_for('main.stats') }}" class="nav-link"><i class="bi bi-bar-chart"></i> <span>Статистика</span></a>
       <a href="{{ url_for('main.notifications') }}" class="nav-link"><i class="bi bi-bell"></i> <span>Уведомления</span></a>
       <a href="{{ url_for('main.settings') }}" class="nav-link"><i class="bi bi-gear"></i> <span>Настройки</span></a>
     </nav>

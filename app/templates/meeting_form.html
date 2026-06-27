@@ -5,8 +5,9 @@
 <div class="card content-card form-card">
   <div class="card-body">
     <h5 class="mb-3">{{ form_title }}</h5>
-    <form method="POST" novalidate>
+    <form method="POST" novalidate class="meeting-form">
       {{ form.hidden_tag() }}
+      <div id="conflictWarn" class="alert alert-warning small py-2 d-none mb-3"></div>
       <div class="mb-3">
         {{ form.to_user.label(class="form-label") }}
         {{ form.to_user(class="form-select", id="meetingToUser") }}

@@ -27,7 +27,36 @@
     {% endwith %}
 
     {% block content %}{% endblock %}
+
+    <div class="text-center mt-3">
+      <button type="button" class="btn btn-sm btn-link text-muted auth-theme-toggle" id="authThemeToggle" title="Сменить тему">
+        <i class="bi bi-moon-stars"></i> Тёмная тема
+      </button>
+    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function () {
+      const key = "meetplan_theme";
+      const root = document.documentElement;
+      const btn = document.getElementById("authThemeToggle");
+      function syncBtn() {
+        const dark = root.getAttribute("data-bs-theme") === "dark";
+        if (!btn) return;
+        btn.innerHTML = dark
+          ? '<i class="bi bi-sun"></i> Светлая тема'
+          : '<i class="bi bi-moon-stars"></i> Тёмная тема';
+      }
+      syncBtn();
+      if (btn) {
+        btn.addEventListener("click", function () {
+          const next = root.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+          root.setAttribute("data-bs-theme", next);
+          localStorage.setItem(key, next);
+          syncBtn();
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

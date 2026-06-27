@@ -26,6 +26,8 @@ def create_app(config_class=Config):
         db.create_all()
         ensure_schema()
         seed_statuses()
+        seed_organizations()
+        assign_default_organization()
 
     return app
 
@@ -49,12 +51,20 @@ def ensure_schema():
         if "avatar_mimetype" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_mimetype VARCHAR(64)"))
             db.session.commit()
-        migrate_legacy_avatars()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "organization_id" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN organization_id INTEGER"))
+            db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "role" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(16) DEFAULT 'member'"))
+            db.session.commit()
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
         if "due_time" not in cols:
             db.session.execute(text("ALTER TABLE tasks ADD COLUMN due_time TIME"))
             db.session.commit()
+    migrate_legacy_avatars()
 
 
 def migrate_legacy_avatars():
@@ -105,14 +115,38 @@ def seed_statuses():
     from app.models import Status
 
     defaults = [
-        (1, "Ожидает", "#8b5cf6"),       # фиолетовый
-        (2, "Подтверждено", "#3b82f6"),  # синий
-        (3, "Отклонено", "#ef4444"),     # красный
+        (1, "Ожидает", "#8b5cf6"),
+        (2, "Подтверждено", "#3b82f6"),
+        (3, "Отклонено", "#ef4444"),
+        (4, "Отменено", "#6b7280"),
     ]
-    if Status.query.count() == 0:
-        for sid, name, color in defaults:
+    for sid, name, color in defaults:
+        if not db.session.get(Status, sid):
             db.session.add(Status(id=sid, name=name, color=color))
+    db.session.commit()
+
+
+def seed_organizations():
+    from app.models import Organization
+
+    if Organization.query.count() == 0:
+        db.session.add(Organization(id=1, name="MeetPlan"))
         db.session.commit()
+
+
+def assign_default_organization():
+    from app.models import User
+
+    users = User.query.filter(User.organization_id.is_(None)).all()
+    if not users:
+        return
+    for user in users:
+        user.organization_id = 1
+        if user.role is None:
+            user.role = "member"
+    if users and User.query.filter_by(role="admin").count() == 0:
+        users[0].role = "admin"
+    db.session.commit()
 
 
 @login_manager.user_loader

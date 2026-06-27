@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", function () {
   initTasks();
   initWidgetMeetingForm();
   initMeetingCalendarLink();
+  initMeetingConflictCheck();
+  initMobileMeetingWidget();
 });
 
 /* ---------- Ссылка на календарь участника (форма встречи) ---------- */
@@ -202,7 +204,20 @@ function renderEventContent(arg) {
   };
 }
 
-/* карточка события для вида «Список» (мобильный) */
+/* карточка события для вида «Список» */
+function formatListDate(date) {
+  return date.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "long" });
+}
+
+function formatListTimeRange(event) {
+  const fmt = { hour: "2-digit", minute: "2-digit", hour12: false };
+  if (!event.start) return "";
+  const start = event.start.toLocaleTimeString("ru-RU", fmt);
+  if (!event.end) return start;
+  const end = event.end.toLocaleTimeString("ru-RU", fmt);
+  return start + " – " + end;
+}
+
 function renderListEventContent(arg) {
   const props = arg.event.extendedProps;
   const statusLabel = props.statusLabel || "";
@@ -210,13 +225,19 @@ function renderListEventContent(arg) {
     ? '<span class="list-ev-badge badge ' + statusClass(props.type, props.statusId) + '">' +
       escapeHtml(statusLabel) + "</span>"
     : "";
-  const time = arg.timeText
-    ? '<div class="list-ev-time"><i class="bi bi-clock"></i> ' + arg.timeText + "</div>"
+  const dateStr = arg.event.start ? formatListDate(arg.event.start) : "";
+  const timeStr = formatListTimeRange(arg.event) || arg.timeText || "";
+  const dateLine = dateStr
+    ? '<div class="list-ev-date"><i class="bi bi-calendar3"></i> ' + dateStr + "</div>"
+    : "";
+  const timeLine = timeStr
+    ? '<div class="list-ev-time"><i class="bi bi-clock"></i> ' + timeStr + "</div>"
     : "";
   return {
     html:
       '<div class="list-ev-card">' +
-      time +
+      dateLine +
+      timeLine +
       '<div class="list-ev-title">' + escapeHtml(arg.event.title) + "</div>" +
       badge +
       "</div>",
@@ -226,6 +247,7 @@ function renderListEventContent(arg) {
 function initCalendar(el) {
   const eventsUrl = el.dataset.eventsUrl || "/api/events";
   const isReadOnly = eventsUrl !== "/api/events";
+  const viewUserId = el.dataset.viewUserId || "";
   calendar = new FullCalendar.Calendar(el, {
     locale: "ru",
     initialView: isMobile() ? "timeGridDay" : "timeGridWeek",
@@ -279,8 +301,21 @@ function initCalendar(el) {
       calendar.setOption("height", calHeight(info.view.type));
     },
     eventClick: function (info) {
+      if (info.event.extendedProps.type === "task") {
+        window.location.href = "/tasks";
+        return;
+      }
       showEventDetails(info.event);
     },
+    dateClick: function (info) {
+      if (!isReadOnly || !viewUserId) return;
+      const d = info.date;
+      const pad = (n) => String(n).padStart(2, "0");
+      const date = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      const start = pad(d.getHours()) + ":" + pad(d.getMinutes());
+      window.location.href = "/meeting/new?to=" + viewUserId + "&date=" + date + "&start=" + start;
+    },
+    selectable: isReadOnly,
   });
   calendar.render();
 
@@ -304,8 +339,10 @@ function initCalendar(el) {
 /* ---------- Детали события ---------- */
 function statusClass(type, statusId) {
   if (type === "personal" || type === "busy") return "st-personal";
+  if (type === "task") return "st-task";
   if (statusId === 2) return "st-confirmed";
   if (statusId === 3) return "st-rejected";
+  if (statusId === 4) return "st-cancelled";
   return "st-pending";
 }
 
@@ -316,6 +353,8 @@ function showEventDetails(event) {
   const descEl = document.getElementById("evDesc");
   if (props.type === "busy") {
     descEl.textContent = "Участник занят в это время.";
+  } else if (props.type === "task") {
+    descEl.textContent = "Задача из раздела «Мои дела». Нажмите, чтобы перейти к списку.";
   } else {
     descEl.textContent = props.description || "Без описания";
   }
@@ -334,19 +373,25 @@ function showEventDetails(event) {
   const delBtn = document.getElementById("evDelete");
   if (delBtn) delBtn.style.display = props.type === "personal" ? "inline-block" : "none";
 
-  // изменять можно свои события (личное дело или встречу, где ты создатель)
   const editBtn = document.getElementById("evEdit");
-  if (editBtn && props.isOwner) {
+  if (editBtn && props.isOwner && props.type !== "task") {
     editBtn.style.display = "inline-block";
     editBtn.href = (props.type === "personal" ? "/event/" : "/meeting/") + event.id + "/edit";
   } else if (editBtn) {
     editBtn.style.display = "none";
   }
 
+  const cancelBtn = document.getElementById("evCancel");
+  if (cancelBtn) {
+    const canCancel = props.type === "meeting" && props.isOwner && props.statusId !== 4 && props.statusId !== 3;
+    cancelBtn.style.display = canCancel ? "inline-block" : "none";
+    cancelBtn.dataset.eventId = event.id;
+  }
+
   new bootstrap.Modal(document.getElementById("eventModal")).show();
 }
 
-/* удаление события */
+/* удаление / отмена события */
 document.addEventListener("click", function (e) {
   if (e.target.closest("#evDelete") && activeEvent) {
     const id = activeEvent.id;
@@ -356,8 +401,22 @@ document.addEventListener("click", function (e) {
       success: function () {
         activeEvent.remove();
         bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+        if (calendar) calendar.refetchEvents();
       },
       error: function () { alert("Не удалось удалить событие"); },
+    });
+  }
+  const cancelBtn = e.target.closest("#evCancel");
+  if (cancelBtn && activeEvent) {
+    if (!confirm("Отменить эту встречу?")) return;
+    $.ajax({
+      url: "/api/meetings/" + activeEvent.id + "/cancel",
+      type: "POST",
+      success: function () {
+        bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+        if (calendar) calendar.refetchEvents();
+      },
+      error: function () { alert("Не удалось отменить встречу"); },
     });
   }
 });
@@ -438,8 +497,7 @@ function pollNotifications() {
 
     data.items.forEach(function (item) {
       if (!seen.includes(item.id)) {
-        notify("Новый запрос на встречу",
-          item.from + " приглашает: «" + item.title + "» (" + item.when + ")");
+        notifyRequest(item);
       }
     });
     // сохраняем только ещё актуальные id, чтобы не копить мусор
@@ -455,47 +513,116 @@ function updateBadges(count) {
   });
 }
 
-function notify(title, body) {
-  // тост Bootstrap
-  showToast(title, body);
-  // браузерное (push-подобное) уведомление
+function notifyRequest(item) {
+  showToast(
+    "Новый запрос на встречу",
+    item.from + " приглашает: «" + item.title + "» (" + item.when + ")",
+    item.id
+  );
   if ("Notification" in window && Notification.permission === "granted") {
-    try { new Notification(title, { body: body, icon: "" }); } catch (e) {}
+    try { new Notification("Новый запрос на встречу", { body: item.from + ": " + item.title }); } catch (e) {}
   }
 }
 
-function showToast(title, body) {
+function showToast(title, body, reqId) {
   const container = document.getElementById("toastContainer");
   if (!container) return;
   const el = document.createElement("div");
   el.className = "toast align-items-center border-0";
   el.setAttribute("role", "alert");
+  const actions = reqId
+    ? '<div class="toast-actions mt-2 d-flex gap-2">' +
+      '<button type="button" class="btn btn-success btn-sm" data-req-action="confirm" data-req-id="' + reqId + '">Принять</button>' +
+      '<button type="button" class="btn btn-outline-danger btn-sm" data-req-action="reject" data-req-id="' + reqId + '">Отклонить</button>' +
+      "</div>"
+    : "";
   el.innerHTML =
     '<div class="toast-header">' +
     '<i class="bi bi-bell-fill text-primary me-2"></i>' +
     '<strong class="me-auto">' + title + "</strong>" +
     '<button type="button" class="btn-close" data-bs-dismiss="toast"></button></div>' +
-    '<div class="toast-body">' + body + "</div>";
+    '<div class="toast-body">' + body + actions + "</div>";
   container.appendChild(el);
-  const t = new bootstrap.Toast(el, { delay: 8000 });
+  const t = new bootstrap.Toast(el, { delay: 12000 });
   t.show();
   el.addEventListener("hidden.bs.toast", () => el.remove());
+  el.querySelectorAll("[data-req-action]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      respondRequest(btn.dataset.reqId, btn.dataset.reqAction, true);
+      t.hide();
+    });
+  });
 }
 
 /* ---------- Ответ на запрос встречи (AJAX) ---------- */
-function respondRequest(reqId, action) {
+function respondRequest(reqId, action, silent) {
   $.ajax({
     url: "/api/requests/" + reqId + "/" + action,
     type: "POST",
     success: function (res) {
       const card = document.getElementById("req-" + reqId);
-      if (!card) return;
-      const badge = card.querySelector(".status-badge");
-      badge.textContent = res.label;
-      badge.className = "badge status-badge mt-1 " + (action === "confirm" ? "st-confirmed" : "st-rejected");
-      const actions = card.querySelector(".request-actions");
-      if (actions) actions.remove();
+      if (card) {
+        const badge = card.querySelector(".status-badge");
+        if (badge) {
+          badge.textContent = res.label;
+          badge.className = "badge status-badge mt-1 " + (action === "confirm" ? "st-confirmed" : "st-rejected");
+        }
+        const actions = card.querySelector(".request-actions");
+        if (actions) actions.remove();
+      }
+      if (!silent) pollNotifications();
     },
     error: function () { alert("Не удалось обработать запрос"); },
+  });
+}
+
+/* ---------- Проверка конфликтов (форма встречи) ---------- */
+function initMeetingConflictCheck() {
+  const form = document.querySelector("form.meeting-form");
+  if (!form) return;
+  const warn = document.getElementById("conflictWarn");
+  const toUser = form.querySelector('[name="to_user"]');
+  const date = form.querySelector('[name="date"]');
+  const start = form.querySelector('[name="start_time"]');
+  const end = form.querySelector('[name="end_time"]');
+  function check() {
+    if (!toUser.value || !date.value || !start.value || !end.value) return;
+    const startIso = date.value + "T" + start.value + ":00";
+    const endIso = date.value + "T" + end.value + ":00";
+    $.ajax({
+      url: "/api/meetings/check-conflicts",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ to_user: toUser.value, start: startIso, end: endIso }),
+      success: function (res) {
+        if (!warn) return;
+        if (res.conflicts && res.conflicts.length) {
+          const names = [...new Set(res.conflicts.map((c) => c.username))].join(", ");
+          warn.textContent = "Конфликт расписания: " + names;
+          warn.classList.remove("d-none");
+        } else {
+          warn.classList.add("d-none");
+        }
+      },
+    });
+  }
+  [toUser, date, start, end].forEach(function (el) {
+    if (el) el.addEventListener("change", check);
+  });
+  check();
+}
+
+/* ---------- Мобильный виджет встречи ---------- */
+function initMobileMeetingWidget() {
+  const form = document.getElementById("mobileMeetingForm");
+  if (!form) return;
+  form.addEventListener("submit", function () {
+    const start = form.querySelector('[name="start_time"]').value;
+    const endHidden = document.getElementById("mobEndTime");
+    if (start && endHidden) {
+      const parts = start.split(":").map(Number);
+      const end = new Date(2000, 0, 1, parts[0] + 1, parts[1] || 0);
+      endHidden.value = String(end.getHours()).padStart(2, "0") + ":" + String(end.getMinutes()).padStart(2, "0");
+    }
   });
 }

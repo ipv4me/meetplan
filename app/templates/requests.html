@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar %}
+{% from '_macros.html' import avatar, empty_state %}
 {% block title %}Запросы — MeetPlan{% endblock %}
 {% block topbar_title %}Запросы{% endblock %}
 {% block content %}
@@ -39,7 +39,8 @@
           {% endif %}
         </div>
         {% else %}
-        <p class="text-muted text-center py-4">Входящих запросов нет.</p>
+        {% from '_macros.html' import empty_state %}
+        {{ empty_state('bi-inbox', 'Входящих запросов нет', 'Когда коллега назначит встречу, она появится здесь.') }}
         {% endfor %}
       </div>
 
@@ -58,7 +59,7 @@
           </div>
         </div>
         {% else %}
-        <p class="text-muted text-center py-4">Вы пока не отправляли запросов.</p>
+        {{ empty_state('bi-send', 'Исходящих запросов нет', 'Создайте встречу с коллегой из раздела «Участники».', url_for('main.new_meeting'), 'Создать встречу') }}
         {% endfor %}
       </div>
     </div>

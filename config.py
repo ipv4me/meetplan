@@ -15,3 +15,6 @@ class Config:
 
     AVATAR_DIR = os.path.join(BASE_DIR, "app", "static", "uploads", "avatars")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV") == "production"
+    SESSION_COOKIE_HTTPONLY = True
+    MAX_CONTENT_LENGTH = 3 * 1024 * 1024

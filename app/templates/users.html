@@ -17,13 +17,17 @@
         <a href="{{ url_for('main.user_calendar', user_id=u.id) }}" class="btn btn-outline-primary btn-sm">
           <i class="bi bi-calendar-week"></i> Календарь
         </a>
+        <a href="{{ url_for('main.free_time', user=u.id) }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-clock-history"></i> Слоты
+        </a>
         <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
-          <i class="bi bi-calendar-plus"></i> Назначить встречу
+          <i class="bi bi-calendar-plus"></i> Встреча
         </a>
       </div>
     </div>
     {% else %}
-    <p class="text-muted text-center py-4">Других пользователей пока нет. Зарегистрируйте второго, чтобы назначать встречи.</p>
+    {% from '_macros.html' import empty_state %}
+    {{ empty_state('bi-people', 'Участников пока нет', 'Зарегистрируйте коллег в вашей организации, чтобы назначать встречи.', url_for('main.register'), 'Регистрация') }}
     {% endfor %}
   </div>
 </div>

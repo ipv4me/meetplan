@@ -1,0 +1,225 @@
+from datetime import datetime, timedelta
+
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort
+from flask_login import login_required, current_user
+
+from app import db
+from app.models import Event, MeetingRequest, EventParticipant
+from app.forms import MeetingForm
+from app.utils import combine, status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
+from app.helpers import pending_count, meeting_user_choices, create_meeting_event
+from app.services.scheduling import find_conflicts
+from app.routes import bp
+
+
+def _prefill_meeting_form(form):
+    preselect = request.args.get("to", type=int)
+    if preselect:
+        form.to_user.data = preselect
+    date_s = request.args.get("date")
+    start_s = request.args.get("start")
+    if date_s:
+        try:
+            form.date.data = datetime.strptime(date_s, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    if start_s:
+        try:
+            form.start_time.data = datetime.strptime(start_s, "%H:%M").time()
+            end_dt = datetime.combine(form.date.data or datetime.utcnow().date(), form.start_time.data)
+            form.end_time.data = (end_dt + timedelta(hours=1)).time()
+        except ValueError:
+            pass
+
+
+@bp.route("/meeting/new", methods=["GET", "POST"])
+@login_required
+def new_meeting():
+    form = MeetingForm()
+    form.to_user.choices = meeting_user_choices()
+    if form.validate_on_submit():
+        if form.to_user.data == current_user.id:
+            flash("Нельзя назначить встречу самому себе.", "danger")
+            return redirect(url_for("main.new_meeting"))
+        start = combine(form.date.data, form.start_time.data)
+        end = combine(form.date.data, form.end_time.data)
+        conflicts = find_conflicts([current_user.id, form.to_user.data], start, end)
+        if conflicts:
+            names = ", ".join({c["username"] for c in conflicts})
+            flash(f"Конфликт расписания у: {names}. Выберите другое время.", "danger")
+            return render_template("meeting_form.html", form=form, form_title="Создать встречу")
+        create_meeting_event(
+            current_user.id, form.to_user.data, form.title.data,
+            form.description.data, start, end,
+        )
+        db.session.commit()
+        flash("Запрос на встречу отправлен.", "success")
+        return redirect(url_for("main.requests_page"))
+
+    if request.method == "GET":
+        _prefill_meeting_form(form)
+    return render_template("meeting_form.html", form=form, form_title="Создать встречу")
+
+
+@bp.route("/meeting/<int:event_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_meeting(event_id):
+    ev = db.session.get(Event, event_id)
+    if ev is None or ev.created_by != current_user.id or ev.event_type != "meeting":
+        abort(404)
+    form = MeetingForm()
+    form.to_user.choices = meeting_user_choices()
+    if request.method == "GET":
+        form.to_user.data = ev.request.to_user_id if ev.request else None
+        form.title.data = ev.title
+        form.description.data = ev.description
+        form.date.data = ev.start_datetime.date()
+        form.start_time.data = ev.start_datetime.time()
+        form.end_time.data = ev.end_datetime.time()
+    if form.validate_on_submit():
+        start = combine(form.date.data, form.start_time.data)
+        end = combine(form.date.data, form.end_time.data)
+        conflicts = find_conflicts(
+            [current_user.id, form.to_user.data], start, end, exclude_event_id=ev.id,
+        )
+        if conflicts:
+            names = ", ".join({c["username"] for c in conflicts})
+            flash(f"Конфликт расписания у: {names}.", "danger")
+            return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+        ev.title = form.title.data
+        ev.description = form.description.data
+        ev.start_datetime = start
+        ev.end_datetime = end
+        if ev.request:
+            ev.request.to_user_id = form.to_user.data
+            ev.request.status_id = STATUS_PENDING
+        EventParticipant.query.filter_by(event_id=ev.id).delete()
+        db.session.add(EventParticipant(event_id=ev.id, user_id=current_user.id, status_id=STATUS_CONFIRMED))
+        db.session.add(EventParticipant(event_id=ev.id, user_id=form.to_user.data, status_id=STATUS_PENDING))
+        db.session.commit()
+        flash("Встреча обновлена, запрос отправлен повторно.", "success")
+        return redirect(url_for("main.calendar"))
+    return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+
+
+@bp.route("/api/meetings/check-conflicts", methods=["POST"])
+@login_required
+def api_check_conflicts():
+    data = request.get_json() or {}
+    try:
+        to_user = int(data["to_user"])
+        start = datetime.fromisoformat(data["start"])
+        end = datetime.fromisoformat(data["end"])
+        exclude = data.get("exclude_event_id")
+    except (KeyError, ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Некорректные данные"}), 400
+    if end <= start:
+        return jsonify({"ok": False, "error": "Некорректный интервал"}), 400
+    if to_user == current_user.id:
+        return jsonify({"ok": False, "error": "Нельзя назначить встречу самому себе"}), 400
+    conflicts = find_conflicts(
+        [current_user.id, to_user], start, end,
+        exclude_event_id=int(exclude) if exclude else None,
+    )
+    return jsonify({"ok": True, "conflicts": conflicts})
+
+
+@bp.route("/api/meetings/<int:event_id>/cancel", methods=["POST"])
+@login_required
+def api_cancel_meeting(event_id):
+    ev = db.session.get(Event, event_id)
+    if ev is None or ev.event_type != "meeting" or not ev.request:
+        abort(404)
+    req = ev.request
+    if current_user.id not in (req.from_user_id, req.to_user_id):
+        abort(403)
+    if req.status_id in (STATUS_CANCELLED,):
+        return jsonify({"ok": True, "label": status_label(STATUS_CANCELLED)})
+    req.status_id = STATUS_CANCELLED
+    for part in EventParticipant.query.filter_by(event_id=ev.id).all():
+        part.status_id = STATUS_CANCELLED
+    db.session.commit()
+    return jsonify({"ok": True, "status": STATUS_CANCELLED, "label": status_label(STATUS_CANCELLED)})
+
+
+@bp.route("/requests")
+@login_required
+def requests_page():
+    incoming = (
+        MeetingRequest.query
+        .filter_by(to_user_id=current_user.id)
+        .order_by(MeetingRequest.created_at.desc())
+        .all()
+    )
+    outgoing = (
+        MeetingRequest.query
+        .filter_by(from_user_id=current_user.id)
+        .order_by(MeetingRequest.created_at.desc())
+        .all()
+    )
+    return render_template(
+        "requests.html",
+        incoming=incoming,
+        outgoing=outgoing,
+        pending_count=pending_count(),
+    )
+
+
+@bp.route("/api/requests/<int:req_id>/<action>", methods=["POST"])
+@login_required
+def api_request_action(req_id, action):
+    from app.utils import STATUS_REJECTED
+
+    req = db.session.get(MeetingRequest, req_id)
+    if req is None or req.to_user_id != current_user.id:
+        abort(404)
+    if action == "confirm":
+        new_status = STATUS_CONFIRMED
+    elif action == "reject":
+        new_status = STATUS_REJECTED
+    else:
+        abort(400)
+
+    req.status_id = new_status
+    part = EventParticipant.query.filter_by(
+        event_id=req.event_id, user_id=current_user.id
+    ).first()
+    if part:
+        part.status_id = new_status
+    db.session.commit()
+    return jsonify({"ok": True, "status": new_status, "label": status_label(new_status)})
+
+
+@bp.route("/notifications")
+@login_required
+def notifications():
+    incoming = (
+        MeetingRequest.query
+        .filter_by(to_user_id=current_user.id)
+        .order_by(MeetingRequest.created_at.desc())
+        .all()
+    )
+    return render_template(
+        "notifications.html", incoming=incoming, pending_count=pending_count(),
+    )
+
+
+@bp.route("/api/notifications")
+@login_required
+def api_notifications():
+    pending = (
+        MeetingRequest.query
+        .filter_by(to_user_id=current_user.id, status_id=STATUS_PENDING)
+        .order_by(MeetingRequest.created_at.desc())
+        .all()
+    )
+    items = [
+        {
+            "id": r.id,
+            "from": r.from_user.username,
+            "title": r.event.title,
+            "when": r.event.start_datetime.strftime("%d.%m.%Y в %H:%M"),
+        }
+        for r in pending
+    ]
+    return jsonify({"count": len(items), "items": items})
