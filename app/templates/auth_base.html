@@ -16,21 +16,27 @@
 <body class="auth-body">
   <div class="auth-card">
     <div class="auth-brand">
-      <i class="bi bi-calendar-check-fill"></i> MeetPlan
+      <i class="bi bi-calendar-check-fill" aria-hidden="true"></i> MeetPlan
     </div>
-    <p class="auth-subtitle">Планирование и согласование встреч</p>
+    <p class="auth-subtitle">Планирование и согласование встреч в одном месте</p>
+
+    <ul class="auth-features list-unstyled small text-muted mb-4">
+      <li><i class="bi bi-check2-circle text-primary" aria-hidden="true"></i> Общий календарь и задачи</li>
+      <li><i class="bi bi-check2-circle text-primary" aria-hidden="true"></i> Запросы на встречи с подтверждением</li>
+      <li><i class="bi bi-check2-circle text-primary" aria-hidden="true"></i> Поиск свободного времени у коллег</li>
+    </ul>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
-        <div class="alert alert-{{ category }} py-2">{{ message }}</div>
+        <div class="alert alert-{{ category }} py-2" role="alert">{{ message }}</div>
       {% endfor %}
     {% endwith %}
 
     {% block content %}{% endblock %}
 
     <div class="text-center mt-3">
-      <button type="button" class="btn btn-sm btn-link text-muted auth-theme-toggle" id="authThemeToggle" title="Сменить тему">
-        <i class="bi bi-moon-stars"></i> Тёмная тема
+      <button type="button" class="btn btn-sm btn-link text-muted auth-theme-toggle" id="authThemeToggle" title="Сменить тему" aria-label="Сменить тему">
+        <i class="bi bi-moon-stars" aria-hidden="true"></i> Тёмная тема
       </button>
     </div>
   </div>
@@ -44,8 +50,8 @@
         const dark = root.getAttribute("data-bs-theme") === "dark";
         if (!btn) return;
         btn.innerHTML = dark
-          ? '<i class="bi bi-sun"></i> Светлая тема'
-          : '<i class="bi bi-moon-stars"></i> Тёмная тема';
+          ? '<i class="bi bi-sun" aria-hidden="true"></i> Светлая тема'
+          : '<i class="bi bi-moon-stars" aria-hidden="true"></i> Тёмная тема';
       }
       syncBtn();
       if (btn) {

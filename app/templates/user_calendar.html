@@ -1,41 +1,51 @@
 {% extends "base.html" %}
 {% from '_macros.html' import avatar %}
 {% block title %}Календарь {{ viewed_user.username }} — MeetPlan{% endblock %}
-{% block topbar_title %}Календарь участника{% endblock %}
+{% block topbar_title %}Календарь {{ viewed_user.username }}{% endblock %}
 {% block content %}
 <div class="card content-card mb-3">
   <div class="card-body">
     <div class="d-flex align-items-center gap-3 mb-3 user-calendar-head">
       {{ avatar(viewed_user) }}
       <div class="min-w-0">
-        <h5 class="mb-0">{{ viewed_user.username }}</h5>
+        <div class="fw-semibold">{{ viewed_user.username }}</div>
         <div class="text-muted small text-break">{{ viewed_user.email }}</div>
       </div>
       <a href="{{ url_for('main.new_meeting', to=viewed_user.id) }}" class="btn btn-primary btn-sm ms-auto">
-        <i class="bi bi-calendar-plus"></i> Назначить встречу
+        <i class="bi bi-calendar-plus" aria-hidden="true"></i> Назначить встречу
       </a>
     </div>
-    <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}" data-timezone="{{ user_timezone }}"></div>
-    <p class="text-muted small mt-2 mb-0"><i class="bi bi-hand-index"></i> Нажмите на свободный слот, чтобы назначить встречу.</p>
-    <div class="legend mt-3">
-      <span><i class="dot-legend" style="background:#f59e0b"></i> Занят (личные дела)</span>
-      <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
-      <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
-      <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
+    <div class="calendar-wrap">
+      <div class="calendar-skeleton" id="calendarSkeleton" aria-hidden="true">
+        <div class="calendar-skeleton-bar w-40"></div>
+        <div class="calendar-skeleton-bar w-60"></div>
+        <div class="calendar-skeleton-bar flex-grow"></div>
+      </div>
+      <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}" data-timezone="{{ user_timezone }}"></div>
     </div>
+    <p class="text-muted small mt-2 mb-0"><i class="bi bi-hand-index" aria-hidden="true"></i> Нажмите на свободный слот, чтобы назначить встречу.</p>
+    <details class="calendar-legend-details mt-3">
+      <summary><i class="bi bi-palette" aria-hidden="true"></i> Легенда календаря</summary>
+      <div class="legend mt-2">
+        <span><i class="dot-legend" style="background:#f59e0b"></i> Занят (личные события)</span>
+        <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
+        <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
+        <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
+      </div>
+    </details>
   </div>
 </div>
 
-<div class="modal fade" id="eventModal" tabindex="-1">
+<div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="evTitle">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="evTitle">Событие</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
       </div>
       <div class="modal-body">
         <p class="mb-2"><span class="badge" id="evStatus"></span></p>
-        <p class="mb-2"><i class="bi bi-clock"></i> <span id="evTime"></span></p>
+        <p class="mb-2"><i class="bi bi-clock" aria-hidden="true"></i> <span id="evTime"></span></p>
         <p class="mb-0 text-muted" id="evDesc"></p>
       </div>
       <div class="modal-footer">

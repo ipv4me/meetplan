@@ -1,20 +1,12 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar %}
+{% from '_macros.html' import avatar, empty_state, page_header %}
 {% block title %}Администрирование — MeetPlan{% endblock %}
 {% block topbar_title %}Администрирование{% endblock %}
 {% block content %}
-<div class="card content-card mb-3">
-  <div class="card-body">
-    <h5 class="mb-2">Администраторы</h5>
-    <p class="text-muted small mb-0">
-      Назначайте и снимайте права администратора для участников организации.
-      Владелец (email из <code>ADMIN_EMAILS</code>) всегда остаётся администратором.
-    </p>
-  </div>
-</div>
-
 <div class="card content-card">
   <div class="card-body">
+    {{ page_header('Назначайте и снимайте права администратора для участников организации. Владелец (email из ADMIN_EMAILS) всегда остаётся администратором.', title='Управление доступом') }}
+
     {% for u in members %}
     <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
       {{ avatar(u) }}
@@ -51,7 +43,6 @@
       </div>
     </div>
     {% else %}
-    {% from '_macros.html' import empty_state %}
     {{ empty_state('bi-shield-lock', 'Нет пользователей', 'В организации пока никого нет.') }}
     {% endfor %}
   </div>
@@ -65,19 +56,25 @@ document.querySelectorAll(".admin-role-btn").forEach(function (btn) {
     const userId = row.dataset.userId;
     const role = btn.dataset.role;
     const label = role === "admin" ? "назначить администратором" : "снять права администратора";
-    if (!confirm("Вы уверены, что хотите " + label + "?")) return;
-    btn.disabled = true;
-    $.ajax({
-      url: "/api/admin/users/" + userId + "/role",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({ role: role }),
-      success: function () { location.reload(); },
-      error: function (xhr) {
-        btn.disabled = false;
-        const msg = (xhr.responseJSON && xhr.responseJSON.error) || "Не удалось изменить роль";
-        alert(msg);
-      },
+    confirmAction({
+      title: "Изменить права?",
+      message: "Вы уверены, что хотите " + label + " этого участника?",
+      confirmLabel: role === "admin" ? "Назначить" : "Снять права",
+      confirmClass: role === "admin" ? "btn-primary" : "btn-danger",
+    }).then(function (ok) {
+      if (!ok) return;
+      btnBusy(btn, true, "Сохраняем…");
+      $.ajax({
+        url: "/api/admin/users/" + userId + "/role",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ role: role }),
+        success: function () { location.reload(); },
+        error: function (xhr) {
+          btnBusy(btn, false);
+          showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Не удалось изменить роль");
+        },
+      });
     });
   });
 });

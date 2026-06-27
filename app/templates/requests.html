@@ -5,21 +5,21 @@
 {% block content %}
 <div class="card content-card">
   <div class="card-body">
-    {{ page_header('Запросы на встречи', 'Подтверждайте входящие приглашения и следите за отправленными.') }}
+    {{ page_header('Подтверждайте входящие приглашения и следите за отправленными.') }}
 
     <ul class="nav nav-tabs mb-3" role="tablist" id="requestsTabs">
-      <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#incoming" type="button">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="incoming-tab" data-bs-toggle="tab" data-bs-target="#incoming" type="button" role="tab" aria-controls="incoming" aria-selected="true">
           Входящие {% if pending_count %}<span class="badge bg-primary">{{ pending_count }}</span>{% endif %}
         </button>
       </li>
-      <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#outgoing" type="button">Отправленные</button>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="outgoing-tab" data-bs-toggle="tab" data-bs-target="#outgoing" type="button" role="tab" aria-controls="outgoing" aria-selected="false">Отправленные</button>
       </li>
     </ul>
 
     <div class="tab-content">
-      <div class="tab-pane fade show active" id="incoming">
+      <div class="tab-pane fade show active" id="incoming" role="tabpanel" aria-labelledby="incoming-tab">
         {% for r in incoming %}
         <div class="request-card" id="req-{{ r.id }}">
           {{ avatar(r.from_user) }}
@@ -42,7 +42,7 @@
         {{ pagination_nav(incoming_pagination, 'inc_page') }}
       </div>
 
-      <div class="tab-pane fade" id="outgoing">
+      <div class="tab-pane fade" id="outgoing" role="tabpanel" aria-labelledby="outgoing-tab">
         {% for r in outgoing %}
         <div class="request-card">
           {{ avatar(r.to_user) }}

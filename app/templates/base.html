@@ -30,6 +30,7 @@
   'main.new_meeting', 'main.admin_users', 'main.edit_meeting', 'main.edit_event'
 ] %}
 
+<a href="#main-content" class="skip-link">Перейти к содержимому</a>
 <div class="app-shell">
 
   {% set side_nav = [
@@ -100,7 +101,7 @@
       {% endwith %}
     </div>
 
-    <main class="content">
+    <main class="content" id="main-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -167,6 +168,24 @@
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index:2000"></div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title" id="confirmModalTitle">Подтвердите действие</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="mb-0 text-muted" id="confirmModalBody"></p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" id="confirmModalCancel">Отмена</button>
+        <button type="button" class="btn btn-primary btn-sm" id="confirmModalOk">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>

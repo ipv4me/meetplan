@@ -14,16 +14,16 @@
 </span>
 {% endmacro %}
 
-{# Заголовок страницы внутри карточки #}
-{% macro page_header(title, subtitle=None, action_url=None, action_label=None, action_icon='bi-plus-lg') %}
+{# Заголовок блока: subtitle + опциональная кнопка. title — только если отличается от topbar (напр. настройки). #}
+{% macro page_header(subtitle=None, action_url=None, action_label=None, action_icon='bi-plus-lg', title=None) %}
 <div class="page-header d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
   <div>
-    <h5 class="page-header-title mb-1">{{ title }}</h5>
-    {% if subtitle %}<p class="page-header-sub text-muted small mb-0">{{ subtitle }}</p>{% endif %}
+    {% if title %}<h5 class="page-header-title mb-1">{{ title }}</h5>{% endif %}
+    {% if subtitle %}<p class="page-header-sub text-muted small {% if title %}mb-0{% else %}mb-0 page-header-sub-only{% endif %}">{{ subtitle }}</p>{% endif %}
   </div>
   {% if action_url and action_label %}
   <a href="{{ action_url }}" class="btn btn-primary btn-sm flex-shrink-0">
-    <i class="bi {{ action_icon }}"></i> {{ action_label }}
+    <i class="bi {{ action_icon }}" aria-hidden="true"></i> {{ action_label }}
   </a>
   {% endif %}
 </div>

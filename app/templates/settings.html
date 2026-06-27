@@ -5,7 +5,7 @@
 {% block content %}
 <div class="card content-card form-card mb-3">
   <div class="card-body">
-    {{ page_header('Профиль', 'Аватар и основная информация вашего аккаунта.') }}
+    {{ page_header('Аватар и основная информация вашего аккаунта.', title='Профиль') }}
     <div class="d-flex align-items-center gap-3 mb-3">
       {{ avatar(current_user, 'avatar-lg') }}
       <div>
@@ -33,7 +33,7 @@
 
 <div class="card content-card form-card mb-3">
   <div class="card-body">
-    {{ page_header('Часовой пояс', 'Время встреч и календаря отображается в выбранном поясе. В базе хранится UTC.') }}
+    {{ page_header('Время встреч и календаря отображается в выбранном поясе. В базе хранится UTC.', title='Часовой пояс') }}
     <form method="POST" class="d-flex flex-wrap gap-2 align-items-end">
       {{ tz_form.hidden_tag() }}
       <input type="hidden" name="form_name" value="timezone">
@@ -48,7 +48,7 @@
 
 <div class="card content-card form-card mb-3">
   <div class="card-body">
-    {{ page_header('Смена пароля', 'Используйте надёжный пароль не короче 6 символов.') }}
+    {{ page_header('Используйте надёжный пароль не короче 6 символов.', title='Смена пароля') }}
     <form method="POST" novalidate>
       {{ form.hidden_tag() }}
       <input type="hidden" name="form_name" value="password">
@@ -74,7 +74,7 @@
 
 <div class="card content-card form-card mb-3">
   <div class="card-body">
-    {{ page_header('Оформление', 'Выберите комфортную тему интерфейса.') }}
+    {{ page_header('Выберите комфортную тему интерфейса.', title='Оформление') }}
     <div class="form-check form-switch">
       <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch">
       <label class="form-check-label" for="themeSwitch">Тёмная тема</label>
@@ -84,7 +84,7 @@
 
 <div class="card content-card form-card">
   <div class="card-body">
-    {{ page_header('Уведомления', 'Разрешите браузерные уведомления, чтобы получать оповещения о новых запросах на встречу.') }}
+    {{ page_header('Разрешите браузерные уведомления, чтобы получать оповещения о новых запросах на встречу.', title='Уведомления') }}
     <button class="btn btn-outline-primary btn-sm" id="enableNotif">
       <i class="bi bi-bell"></i> Включить уведомления
     </button>

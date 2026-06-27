@@ -36,6 +36,75 @@ function hideCalendarSkeleton() {
   if (sk) sk.classList.add("is-hidden");
 }
 
+function showErrorToast(message) {
+  showAppToast("Ошибка", message, "danger");
+}
+
+function showSuccessToast(message) {
+  showAppToast("Готово", message, "success");
+}
+
+function showAppToast(title, body, variant) {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  const icon = variant === "danger" ? "exclamation-triangle-fill text-danger"
+    : variant === "success" ? "check-circle-fill text-success"
+    : "info-circle-fill text-primary";
+  const el = document.createElement("div");
+  el.className = "toast align-items-center border-0";
+  el.setAttribute("role", "alert");
+  el.innerHTML =
+    '<div class="toast-header">' +
+    '<i class="bi bi-' + icon + ' me-2" aria-hidden="true"></i>' +
+    '<strong class="me-auto">' + escapeHtml(title) + "</strong>" +
+    '<button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Закрыть"></button></div>' +
+    '<div class="toast-body">' + escapeHtml(body) + "</div>";
+  container.appendChild(el);
+  const t = new bootstrap.Toast(el, { delay: 6000 });
+  t.show();
+  el.addEventListener("hidden.bs.toast", function () { el.remove(); });
+}
+
+function confirmAction(options) {
+  const opts = options || {};
+  const modalEl = document.getElementById("confirmModal");
+  if (!modalEl) return Promise.resolve(window.confirm(opts.message || opts.title || "Подтвердите действие"));
+  const titleEl = document.getElementById("confirmModalTitle");
+  const bodyEl = document.getElementById("confirmModalBody");
+  const okBtn = document.getElementById("confirmModalOk");
+  const cancelBtn = document.getElementById("confirmModalCancel");
+  titleEl.textContent = opts.title || "Подтвердите действие";
+  bodyEl.textContent = opts.message || "";
+  okBtn.textContent = opts.confirmLabel || "Подтвердить";
+  okBtn.className = "btn btn-sm " + (opts.confirmClass || "btn-primary");
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  return new Promise(function (resolve) {
+    function cleanup() {
+      okBtn.removeEventListener("click", onOk);
+      modalEl.removeEventListener("hidden.bs.modal", onHide);
+    }
+    function onOk() {
+      cleanup();
+      done(true);
+      modal.hide();
+    }
+    function onHide() {
+      cleanup();
+      done(false);
+    }
+    let settled = false;
+    function done(val) {
+      if (settled) return;
+      settled = true;
+      resolve(val);
+    }
+    okBtn.addEventListener("click", onOk);
+    modalEl.addEventListener("hidden.bs.modal", onHide, { once: false });
+    modal.show();
+    cancelBtn.focus();
+  });
+}
+
 /* ---------- Ссылка на календарь участника (форма встречи) ---------- */
 function initMeetingCalendarLink() {
   const select = document.getElementById("meetingToUser");
@@ -139,10 +208,23 @@ function initTasks() {
   // делегирование: чекбокс и удаление (работает и на странице, и в виджете)
   list.addEventListener("change", function (e) {
     if (e.target.classList.contains("todo-check")) {
-      const item = e.target.closest(".todo-item");
-      $.post("/api/tasks/" + item.dataset.id + "/toggle", function (res) {
-        item.classList.toggle("done", res.done);
-      });
+      const checkbox = e.target;
+      const item = checkbox.closest(".todo-item");
+      const prev = checkbox.checked;
+      checkbox.disabled = true;
+      item.classList.add("is-loading");
+      $.post("/api/tasks/" + item.dataset.id + "/toggle")
+        .done(function (res) {
+          item.classList.toggle("done", res.done);
+        })
+        .fail(function () {
+          checkbox.checked = !prev;
+          showErrorToast("Не удалось обновить дело");
+        })
+        .always(function () {
+          checkbox.disabled = false;
+          item.classList.remove("is-loading");
+        });
     }
   });
   list.addEventListener("click", function (e) {
@@ -154,17 +236,31 @@ function initTasks() {
     const del = e.target.closest(".todo-del");
     if (del) {
       const item = del.closest(".todo-item");
-      $.ajax({
-        url: "/api/tasks/" + item.dataset.id,
-        type: "DELETE",
-        success: function () {
-          item.remove();
-          if (emptyEl && !list.querySelector(".todo-item")) emptyEl.classList.remove("d-none");
-        },
+      const title = item.querySelector(".todo-title")?.textContent?.trim() || "это дело";
+      confirmAction({
+        title: "Удалить дело?",
+        message: "«" + title + "» будет удалено без возможности восстановления.",
+        confirmLabel: "Удалить",
+        confirmClass: "btn-danger",
+      }).then(function (ok) {
+        if (!ok) return;
+        btnBusy(del, true);
+        $.ajax({
+          url: "/api/tasks/" + item.dataset.id,
+          type: "DELETE",
+          success: function () {
+            item.remove();
+            if (emptyEl && !list.querySelector(".todo-item")) emptyEl.classList.remove("d-none");
+            showSuccessToast("Дело удалено");
+          },
+          error: function () { showErrorToast("Не удалось удалить дело"); },
+          complete: function () { btnBusy(del, false); },
+        });
       });
     }
   });
 
+  const editSave = document.getElementById("editTaskSave");
   if (editSave) {
     editSave.addEventListener("click", function () {
       btnBusy(editSave, true, "Сохраняем…");
@@ -464,7 +560,7 @@ function reschedulePersonalEvent(info) {
     }),
     error: function () {
       info.revert();
-      alert("Не удалось перенести событие");
+      showErrorToast("Не удалось перенести событие");
     },
   });
 }
@@ -527,29 +623,52 @@ function showEventDetails(event) {
 /* удаление / отмена события */
 document.addEventListener("click", function (e) {
   if (e.target.closest("#evDelete") && activeEvent) {
+    const delBtn = e.target.closest("#evDelete");
     const id = activeEvent.id;
-    $.ajax({
-      url: "/api/events/" + id,
-      type: "DELETE",
-      success: function () {
-        activeEvent.remove();
-        bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
-        if (calendar) calendar.refetchEvents();
-      },
-      error: function () { alert("Не удалось удалить событие"); },
+    const title = activeEvent.title || "событие";
+    confirmAction({
+      title: "Удалить событие?",
+      message: "«" + title + "» будет удалено из календаря.",
+      confirmLabel: "Удалить",
+      confirmClass: "btn-danger",
+    }).then(function (ok) {
+      if (!ok) return;
+      btnBusy(delBtn, true, "Удаляем…");
+      $.ajax({
+        url: "/api/events/" + id,
+        type: "DELETE",
+        success: function () {
+          activeEvent.remove();
+          bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+          if (calendar) calendar.refetchEvents();
+          showSuccessToast("Событие удалено");
+        },
+        error: function () { showErrorToast("Не удалось удалить событие"); },
+        complete: function () { btnBusy(delBtn, false); },
+      });
     });
   }
   const cancelBtn = e.target.closest("#evCancel");
   if (cancelBtn && activeEvent) {
-    if (!confirm("Отменить эту встречу?")) return;
-    $.ajax({
-      url: "/api/meetings/" + activeEvent.id + "/cancel",
-      type: "POST",
-      success: function () {
-        bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
-        if (calendar) calendar.refetchEvents();
-      },
-      error: function () { alert("Не удалось отменить встречу"); },
+    confirmAction({
+      title: "Отменить встречу?",
+      message: "Участники увидят встречу как отменённую.",
+      confirmLabel: "Отменить встречу",
+      confirmClass: "btn-danger",
+    }).then(function (ok) {
+      if (!ok) return;
+      btnBusy(cancelBtn, true, "Отменяем…");
+      $.ajax({
+        url: "/api/meetings/" + activeEvent.id + "/cancel",
+        type: "POST",
+        success: function () {
+          bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+          if (calendar) calendar.refetchEvents();
+          showSuccessToast("Встреча отменена");
+        },
+        error: function () { showErrorToast("Не удалось отменить встречу"); },
+        complete: function () { btnBusy(cancelBtn, false); },
+      });
     });
   }
 });
@@ -691,13 +810,20 @@ function showToast(title, body, reqId) {
 }
 
 function cancelMeeting(eventId, btn) {
-  if (!confirm("Отменить эту встречу?")) return;
-  btnBusy(btn, true, "Отменяем…");
-  $.ajax({
-    url: "/api/meetings/" + eventId + "/cancel",
-    type: "POST",
-    success: function () { location.reload(); },
-    error: function () { alert("Не удалось отменить встречу"); btnBusy(btn, false); },
+  confirmAction({
+    title: "Отменить встречу?",
+    message: "Участники увидят встречу как отменённую.",
+    confirmLabel: "Отменить встречу",
+    confirmClass: "btn-danger",
+  }).then(function (ok) {
+    if (!ok) return;
+    btnBusy(btn, true, "Отменяем…");
+    $.ajax({
+      url: "/api/meetings/" + eventId + "/cancel",
+      type: "POST",
+      success: function () { location.reload(); },
+      error: function () { showErrorToast("Не удалось отменить встречу"); btnBusy(btn, false); },
+    });
   });
 }
 
@@ -720,7 +846,7 @@ function respondRequest(reqId, action, silent, btn) {
       }
       if (!silent) pollNotifications();
     },
-    error: function () { alert("Не удалось обработать запрос"); },
+    error: function () { showErrorToast("Не удалось обработать запрос"); },
     complete: function () { if (btn) btnBusy(btn, false); },
   });
 }
