@@ -239,6 +239,14 @@ def test_health(client):
     assert data.get("db") == "ok"
 
 
+def test_notifications_redirects_to_requests(client):
+    _register(client, "u1", "u1@test.com")
+    _login(client, "u1@test.com")
+    r = client.get("/notifications")
+    assert r.status_code == 302
+    assert "tab=incoming" in r.location
+
+
 def test_email_normalized(client, app):
     _register(client, "Owner", "Owner@TEST.com")
     with app.app_context():

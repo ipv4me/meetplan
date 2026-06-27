@@ -1,12 +1,11 @@
 {% extends "base.html" %}
+{% from '_macros.html' import page_header, empty_state %}
 {% block title %}Мои дела — MeetPlan{% endblock %}
 {% block topbar_title %}Мои дела{% endblock %}
 {% block content %}
 <div class="card content-card">
   <div class="card-body">
-    <h5 class="mb-3">Мои дела</h5>
-
-    <p class="text-muted small mb-3">Дела с датой отображаются в вашем календаре.</p>
+    {{ page_header('Мои дела', 'Дела с датой и временем отображаются в вашем календаре.') }}
 
     <div class="todo-add">
       <div class="todo-field todo-field-full">
@@ -39,14 +38,14 @@
           <div class="todo-title">{{ t.title }}</div>
           {% if t.due_display %}<div class="text-muted small todo-due">{{ t.due_display }}</div>{% else %}<div class="text-muted small todo-due d-none"></div>{% endif %}
         </div>
-        <button class="btn-icon todo-edit" title="Изменить"><i class="bi bi-pencil"></i></button>
-        <button class="btn-icon todo-del" title="Удалить"><i class="bi bi-trash"></i></button>
+        <button class="btn-icon todo-edit" title="Изменить" aria-label="Изменить"><i class="bi bi-pencil"></i></button>
+        <button class="btn-icon todo-del" title="Удалить" aria-label="Удалить"><i class="bi bi-trash"></i></button>
       </div>
       {% endfor %}
     </div>
-    <p class="text-muted text-center py-4 {% if tasks %}d-none{% endif %}" id="taskEmpty">
-      Список пуст. Добавьте первое дело!
-    </p>
+    <div id="taskEmpty" class="{% if tasks %}d-none{% endif %}">
+      {{ empty_state('bi-check2-square', 'Список пуст', 'Добавьте первое дело — оно появится здесь и в календаре.', compact=True) }}
+    </div>
   </div>
 </div>
 

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar, empty_state, pagination_nav %}
+{% from '_macros.html' import avatar, empty_state, pagination_nav, page_header %}
 {% block title %}Участники — MeetPlan{% endblock %}
 {% block topbar_title %}Участники{% endblock %}
 {% block content %}
 <div class="card content-card">
   <div class="card-body">
-    <h5 class="mb-3">Участники системы</h5>
+    {{ page_header('Участники', 'Коллеги вашей организации — просмотр календаря, поиск слотов и создание встреч.', url_for('main.new_meeting'), 'Новая встреча', 'bi-calendar-plus') }}
+
     {% for u in users %}
     <div class="request-card">
       {{ avatar(u) }}

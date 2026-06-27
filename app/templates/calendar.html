@@ -1,26 +1,34 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar %}
+{% from '_macros.html' import avatar, empty_state %}
 {% block title %}Календарь — MeetPlan{% endblock %}
 {% block topbar_title %}Календарь{% endblock %}
 {% block content %}
 
-<!-- ===== Календарь ===== -->
 <div class="card content-card mb-3">
   <div class="card-body">
-    <div id="calendar" data-timezone="{{ user_timezone }}"></div>
-    <p class="text-muted small mt-2 mb-0"><i class="bi bi-globe2"></i> Часовой пояс: {{ user_timezone_label }}</p>
-    <div class="legend mt-3">
-      <span><i class="dot-legend" style="background:#f59e0b"></i> Личные дела</span>
-      <span><i class="dot-legend" style="background:#22c55e"></i> Задачи</span>
-      <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
-      <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
-      <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
-      <span><i class="dot-legend" style="background:#6b7280"></i> Отменённые</span>
+    <div class="calendar-wrap">
+      <div class="calendar-skeleton" id="calendarSkeleton" aria-hidden="true">
+        <div class="calendar-skeleton-bar w-40"></div>
+        <div class="calendar-skeleton-bar w-60"></div>
+        <div class="calendar-skeleton-bar flex-grow"></div>
+      </div>
+      <div id="calendar" data-timezone="{{ user_timezone }}"></div>
     </div>
+    <p class="text-muted small mt-2 mb-0"><i class="bi bi-globe2"></i> Часовой пояс: {{ user_timezone_label }}</p>
+    <details class="calendar-legend-details mt-3">
+      <summary><i class="bi bi-palette"></i> Легенда календаря</summary>
+      <div class="legend mt-2">
+        <span><i class="dot-legend" style="background:#f59e0b"></i> Личные события</span>
+        <span><i class="dot-legend" style="background:#22c55e"></i> Задачи</span>
+        <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
+        <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
+        <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
+        <span><i class="dot-legend" style="background:#6b7280"></i> Отменённые</span>
+      </div>
+    </details>
   </div>
 </div>
 
-<!-- Быстрая встреча (мобильный) -->
 <div class="card content-card mb-3 d-md-none mobile-meeting-card">
   <div class="card-body">
     <h6 class="widget-title">Быстрая встреча</h6>
@@ -29,21 +37,24 @@
       <div class="mb-2">
         <label class="form-label small">С кем</label>
         <select name="to_user" class="form-select form-select-sm" required>
-          <option value="" disabled selected>Выберите</option>
+          <option value="" disabled selected>Выберите участника</option>
           {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
         </select>
       </div>
       <div class="row g-2 mb-2">
-        <div class="col-7">
+        <div class="col-12">
           <label class="form-label small">Дата</label>
           <input type="date" name="date" class="form-control form-control-sm" required>
         </div>
-        <div class="col-5">
-          <label class="form-label small">Время</label>
-          <input type="time" name="start_time" class="form-control form-control-sm" value="14:00" required>
+        <div class="col-6">
+          <label class="form-label small">Начало</label>
+          <input type="time" name="start_time" class="form-control form-control-sm meeting-start-time" value="14:00" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label small">Окончание</label>
+          <input type="time" name="end_time" class="form-control form-control-sm meeting-end-time" value="15:00" id="mobEndTime" required>
         </div>
       </div>
-      <input type="hidden" name="end_time" value="15:00" id="mobEndTime">
       <div class="mb-2">
         <label class="form-label small">Тема</label>
         <input type="text" name="title" class="form-control form-control-sm" placeholder="Тема встречи" required>
@@ -53,10 +64,8 @@
   </div>
 </div>
 
-<!-- ===== Виджеты (десктоп) ===== -->
 <div class="row g-3 dashboard-widgets d-none d-lg-flex">
 
-  <!-- Создание встречи -->
   <div class="col-lg-4">
     <div class="card content-card h-100">
       <div class="card-body">
@@ -66,21 +75,24 @@
           <div class="mb-2">
             <label class="form-label small">С кем</label>
             <select name="to_user" class="form-select form-select-sm" required>
-              <option value="" disabled selected>Выберите пользователя</option>
+              <option value="" disabled selected>Выберите участника</option>
               {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
             </select>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-7">
+            <div class="col-12">
               <label class="form-label small">Дата</label>
               <input type="date" name="date" class="form-control form-control-sm" required>
             </div>
-            <div class="col-5">
-              <label class="form-label small">Время</label>
-              <input type="time" name="start_time" class="form-control form-control-sm" value="14:00" required>
+            <div class="col-6">
+              <label class="form-label small">Начало</label>
+              <input type="time" name="start_time" class="form-control form-control-sm meeting-start-time" value="14:00" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Окончание</label>
+              <input type="time" name="end_time" class="form-control form-control-sm meeting-end-time" value="15:00" id="wgEndTime" required>
             </div>
           </div>
-          <input type="hidden" name="end_time" value="15:00" id="wgEndTime">
           <div class="mb-2">
             <label class="form-label small">Тема</label>
             <input type="text" name="title" class="form-control form-control-sm" placeholder="Обсуждение проекта" required>
@@ -95,7 +107,6 @@
     </div>
   </div>
 
-  <!-- Запрос на встречу -->
   <div class="col-lg-4">
     <div class="card content-card h-100">
       <div class="card-body">
@@ -115,21 +126,17 @@
           {% if latest_request.event.description %}<div class="small text-muted mb-2">{{ latest_request.event.description }}</div>{% endif %}
           <span class="badge status-badge st-pending mb-3">Ожидает подтверждения</span>
           <div class="request-actions d-flex gap-2">
-            <button class="btn btn-success btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'confirm')">Подтвердить</button>
-            <button class="btn btn-outline-danger btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'reject')">Отклонить</button>
+            <button class="btn btn-success btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'confirm', false, this)">Подтвердить</button>
+            <button class="btn btn-outline-danger btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'reject', false, this)">Отклонить</button>
           </div>
         </div>
         {% else %}
-        <div class="text-center text-muted py-4">
-          <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-          Новых запросов нет
-        </div>
+        {{ empty_state('bi-inbox', 'Новых запросов нет', 'Входящие запросы на встречи появятся здесь.', url_for('main.requests_page'), 'Все запросы', compact=True) }}
         {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- Мои дела -->
   <div class="col-lg-4">
     <div class="card content-card h-100">
       <div class="card-body">
@@ -148,7 +155,7 @@
             </div>
           </div>
           {% else %}
-          <p class="text-muted text-center py-3 mb-0">Дел пока нет</p>
+          {{ empty_state('bi-check2-square', 'Дел пока нет', 'Добавьте задачу — она появится в календаре.', url_for('main.tasks'), 'Добавить дело', compact=True) }}
           {% endfor %}
         </div>
       </div>
@@ -156,7 +163,6 @@
   </div>
 </div>
 
-<!-- Модалка деталей события -->
 <div class="modal fade" id="eventModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -179,7 +185,6 @@
   </div>
 </div>
 
-<!-- Модалка создания личного события -->
 <div class="modal fade" id="newEventModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

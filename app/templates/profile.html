@@ -7,18 +7,20 @@
   <div class="card-body text-center">
     {{ avatar(current_user, 'avatar-lg mx-auto mb-3') }}
     <h5 class="mb-1">{{ current_user.username }}</h5>
-    <p class="text-muted">{{ current_user.email }}</p>
+    <p class="text-muted mb-2">{{ current_user.email }}</p>
     {% if current_user.organization %}
-    <p class="small mb-0"><span class="badge bg-light text-dark">{{ current_user.organization.name }}</span>
-      {% if current_user.is_admin %}<span class="badge bg-primary">Администратор</span>{% endif %}
+    <p class="small mb-0 d-flex flex-wrap gap-2 justify-content-center">
+      <span class="badge org-badge">{{ current_user.organization.name }}</span>
+      {% if current_user.is_admin %}<span class="badge role-badge">Администратор</span>{% endif %}
     </p>
     {% endif %}
-    <p class="small text-muted mt-2">В системе с {{ current_user.created_at|user_dt('%d.%m.%Y') }}</p>
-    <div class="d-flex gap-2 justify-content-center mt-3 flex-wrap">
-      <a href="{{ url_for('main.settings') }}" class="btn btn-outline-primary btn-sm">Настройки</a>
-      <a href="{{ url_for('main.stats') }}" class="btn btn-outline-secondary btn-sm">Статистика</a>
+    <p class="small text-muted mt-3 mb-0">В системе с {{ current_user.created_at|user_dt('%d.%m.%Y') }}</p>
+    <div class="d-flex gap-2 justify-content-center mt-4 flex-wrap">
+      <a href="{{ url_for('main.settings') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear"></i> Настройки</a>
+      <a href="{{ url_for('main.stats') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart"></i> Статистика</a>
+      <a href="{{ url_for('main.free_time') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clock-history"></i> Свободное время</a>
     </div>
-    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger mt-2">
+    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger mt-3">
       <i class="bi bi-box-arrow-right"></i> Выйти
     </a>
   </div>

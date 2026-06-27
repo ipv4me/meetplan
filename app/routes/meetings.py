@@ -224,15 +224,7 @@ def api_request_action(req_id, action):
 @bp.route("/notifications")
 @login_required
 def notifications():
-    incoming = (
-        MeetingRequest.query
-        .filter_by(to_user_id=current_user.id, status_id=STATUS_PENDING)
-        .order_by(MeetingRequest.created_at.desc())
-        .all()
-    )
-    return render_template(
-        "notifications.html", incoming=incoming, pending_count=pending_count(),
-    )
+    return redirect(url_for("main.requests_page", tab="incoming"))
 
 
 @bp.route("/api/notifications")

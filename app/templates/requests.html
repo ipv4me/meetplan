@@ -1,18 +1,20 @@
 {% extends "base.html" %}
-{% from '_macros.html' import avatar, empty_state, request_status_badge, pagination_nav %}
+{% from '_macros.html' import avatar, empty_state, request_status_badge, pagination_nav, page_header %}
 {% block title %}Запросы — MeetPlan{% endblock %}
 {% block topbar_title %}Запросы{% endblock %}
 {% block content %}
 <div class="card content-card">
   <div class="card-body">
-    <ul class="nav nav-tabs mb-3" role="tablist">
+    {{ page_header('Запросы на встречи', 'Подтверждайте входящие приглашения и следите за отправленными.') }}
+
+    <ul class="nav nav-tabs mb-3" role="tablist" id="requestsTabs">
       <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#incoming">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#incoming" type="button">
           Входящие {% if pending_count %}<span class="badge bg-primary">{{ pending_count }}</span>{% endif %}
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#outgoing">Отправленные</button>
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#outgoing" type="button">Отправленные</button>
       </li>
     </ul>
 
@@ -29,8 +31,8 @@
           </div>
           {% if r.status_id == 1 %}
           <div class="request-actions">
-            <button class="btn btn-success btn-sm" onclick="respondRequest({{ r.id }}, 'confirm')">Подтвердить</button>
-            <button class="btn btn-outline-danger btn-sm" onclick="respondRequest({{ r.id }}, 'reject')">Отклонить</button>
+            <button class="btn btn-success btn-sm" onclick="respondRequest({{ r.id }}, 'confirm', false, this)">Подтвердить</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="respondRequest({{ r.id }}, 'reject', false, this)">Отклонить</button>
           </div>
           {% endif %}
         </div>
@@ -52,7 +54,7 @@
           </div>
           {% if r.status_id in (1, 2) %}
           <div class="request-actions">
-            <button class="btn btn-outline-secondary btn-sm" onclick="cancelMeeting({{ r.event_id }})">Отменить</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="cancelMeeting({{ r.event_id }}, this)">Отменить</button>
           </div>
           {% endif %}
         </div>

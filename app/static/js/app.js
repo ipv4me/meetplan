@@ -10,11 +10,31 @@ document.addEventListener("DOMContentLoaded", function () {
   startNotificationPolling();
   initThemeToggle();
   initTasks();
-  initWidgetMeetingForm();
+  initWidgetMeetingForms();
   initMeetingCalendarLink();
   initMeetingConflictCheck();
-  initMobileMeetingWidget();
+  initRequestsTabs();
 });
+
+/* ---------- Утилиты UI ---------- */
+function btnBusy(btn, busy, label) {
+  if (!btn) return;
+  if (busy) {
+    if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' +
+      (label || "Подождите…");
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
+  }
+}
+
+function hideCalendarSkeleton() {
+  const sk = document.getElementById("calendarSkeleton");
+  if (sk) sk.classList.add("is-hidden");
+}
 
 /* ---------- Ссылка на календарь участника (форма встречи) ---------- */
 function initMeetingCalendarLink() {
@@ -50,12 +70,21 @@ function applyEndTimeFromStart(form, startSelector, endHiddenId) {
   }
 }
 
-/* ---------- Виджет «Создание встречи» ---------- */
-function initWidgetMeetingForm() {
-  const form = document.querySelector(".widget-form");
-  if (!form) return;
-  form.addEventListener("submit", function () {
-    applyEndTimeFromStart(form, '[name="start_time"]', "wgEndTime");
+/* ---------- Виджеты «Создание встречи» ---------- */
+function initWidgetMeetingForms() {
+  document.querySelectorAll(".widget-form, form.meeting-form").forEach(function (form) {
+    const start = form.querySelector('[name="start_time"]');
+    const end = form.querySelector('[name="end_time"]');
+    if (start && end) {
+      start.addEventListener("change", function () {
+        if (start.value) end.value = addOneHour(start.value);
+      });
+    }
+    form.addEventListener("submit", function () {
+      if (start && end && start.value && !end.value) {
+        end.value = addOneHour(start.value);
+      }
+    });
   });
 }
 
@@ -77,6 +106,7 @@ function initTasks() {
       const title = titleInput.value.trim();
       if (!title) { errEl.textContent = "Введите название"; return; }
       errEl.textContent = "";
+      btnBusy(addBtn, true, "Добавляем…");
       $.ajax({
         url: "/api/tasks",
         type: "POST",
@@ -97,6 +127,7 @@ function initTasks() {
         error: function (xhr) {
           errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
         },
+        complete: function () { btnBusy(addBtn, false); },
       });
     }
     addBtn.addEventListener("click", addTask);
@@ -134,9 +165,11 @@ function initTasks() {
     }
   });
 
-  const editSave = document.getElementById("editTaskSave");
   if (editSave) {
-    editSave.addEventListener("click", saveTaskEdit);
+    editSave.addEventListener("click", function () {
+      btnBusy(editSave, true, "Сохраняем…");
+      saveTaskEdit(function () { btnBusy(editSave, false); });
+    });
   }
 }
 
@@ -151,13 +184,16 @@ function openTaskEdit(item) {
   new bootstrap.Modal(document.getElementById("taskEditModal")).show();
 }
 
-function saveTaskEdit() {
-  if (!editingTaskItem) return;
+function saveTaskEdit(onComplete) {
+  if (!editingTaskItem) {
+    if (onComplete) onComplete();
+    return;
+  }
   const title = document.getElementById("editTaskTitle").value.trim();
   const dueDate = document.getElementById("editTaskDate").value;
   const dueTime = document.getElementById("editTaskTime").value;
   const errEl = document.getElementById("editTaskError");
-  if (!title) { errEl.textContent = "Введите название"; return; }
+  if (!title) { errEl.textContent = "Введите название"; if (onComplete) onComplete(); return; }
   $.ajax({
     url: "/api/tasks/" + editingTaskItem.dataset.id,
     type: "PUT",
@@ -184,6 +220,7 @@ function saveTaskEdit() {
     error: function (xhr) {
       errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
     },
+    complete: function () { if (onComplete) onComplete(); },
   });
 }
 
@@ -395,8 +432,7 @@ function initCalendar(el) {
     selectable: isReadOnly,
   });
   calendar.render();
-
-  // переключаем вид/высоту при смене размера окна
+  hideCalendarSkeleton();
   let lastMobile = isMobile();
   window.addEventListener("resize", function () {
     calendar.setOption("height", calHeight(calendar.view.type));
@@ -533,6 +569,7 @@ function bindNewEventModal() {
   if (!modalEl) return;
 
   document.getElementById("neSave").addEventListener("click", function () {
+    const saveBtn = document.getElementById("neSave");
     const title = document.getElementById("neTitle").value.trim();
     const date = document.getElementById("neDate").value;
     const start = document.getElementById("neStart").value;
@@ -543,6 +580,7 @@ function bindNewEventModal() {
       err.textContent = "Заполните все поля.";
       return;
     }
+    btnBusy(saveBtn, true, "Сохраняем…");
     $.ajax({
       url: "/api/events",
       type: "POST",
@@ -562,6 +600,7 @@ function bindNewEventModal() {
       error: function (xhr) {
         err.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка сохранения.";
       },
+      complete: function () { btnBusy(saveBtn, false); },
     });
   });
 }
@@ -629,7 +668,7 @@ function showToast(title, body, reqId) {
   el.setAttribute("role", "alert");
   const actions = reqId
     ? '<div class="toast-actions mt-2 d-flex gap-2">' +
-      '<button type="button" class="btn btn-success btn-sm" data-req-action="confirm" data-req-id="' + reqId + '">Принять</button>' +
+      '<button type="button" class="btn btn-success btn-sm" data-req-action="confirm" data-req-id="' + reqId + '">Подтвердить</button>' +
       '<button type="button" class="btn btn-outline-danger btn-sm" data-req-action="reject" data-req-id="' + reqId + '">Отклонить</button>' +
       "</div>"
     : "";
@@ -651,18 +690,20 @@ function showToast(title, body, reqId) {
   });
 }
 
-function cancelMeeting(eventId) {
+function cancelMeeting(eventId, btn) {
   if (!confirm("Отменить эту встречу?")) return;
+  btnBusy(btn, true, "Отменяем…");
   $.ajax({
     url: "/api/meetings/" + eventId + "/cancel",
     type: "POST",
     success: function () { location.reload(); },
-    error: function () { alert("Не удалось отменить встречу"); },
+    error: function () { alert("Не удалось отменить встречу"); btnBusy(btn, false); },
   });
 }
 
 /* ---------- Ответ на запрос встречи (AJAX) ---------- */
-function respondRequest(reqId, action, silent) {
+function respondRequest(reqId, action, silent, btn) {
+  if (btn) btnBusy(btn, true, action === "confirm" ? "Подтверждаем…" : "Отклоняем…");
   $.ajax({
     url: "/api/requests/" + reqId + "/" + action,
     type: "POST",
@@ -680,7 +721,20 @@ function respondRequest(reqId, action, silent) {
       if (!silent) pollNotifications();
     },
     error: function () { alert("Не удалось обработать запрос"); },
+    complete: function () { if (btn) btnBusy(btn, false); },
   });
+}
+
+/* ---------- Вкладки запросов (?tab=outgoing) ---------- */
+function initRequestsTabs() {
+  const tabs = document.getElementById("requestsTabs");
+  if (!tabs) return;
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  if (tab === "outgoing") {
+    const btn = tabs.querySelector('[data-bs-target="#outgoing"]');
+    if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+  }
 }
 
 /* ---------- Проверка конфликтов (форма встречи) ---------- */
@@ -722,11 +776,4 @@ function initMeetingConflictCheck() {
   check();
 }
 
-/* ---------- Мобильный виджет встречи ---------- */
-function initMobileMeetingWidget() {
-  const form = document.getElementById("mobileMeetingForm");
-  if (!form) return;
-  form.addEventListener("submit", function () {
-    applyEndTimeFromStart(form, '[name="start_time"]', "mobEndTime");
-  });
-}
+/* initMobileMeetingWidget merged into initWidgetMeetingForms */

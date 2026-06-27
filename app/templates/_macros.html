@@ -14,6 +14,21 @@
 </span>
 {% endmacro %}
 
+{# Заголовок страницы внутри карточки #}
+{% macro page_header(title, subtitle=None, action_url=None, action_label=None, action_icon='bi-plus-lg') %}
+<div class="page-header d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+  <div>
+    <h5 class="page-header-title mb-1">{{ title }}</h5>
+    {% if subtitle %}<p class="page-header-sub text-muted small mb-0">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if action_url and action_label %}
+  <a href="{{ action_url }}" class="btn btn-primary btn-sm flex-shrink-0">
+    <i class="bi {{ action_icon }}"></i> {{ action_label }}
+  </a>
+  {% endif %}
+</div>
+{% endmacro %}
+
 {# Пагинация Bootstrap (сохраняет текущие query-параметры) #}
 {% macro pagination_nav(p, param_name) %}
 {% if p.pages > 1 %}
@@ -43,9 +58,9 @@
 {% endif %}
 {% endmacro %}
 
-{% macro empty_state(icon, title, text, btn_url=None, btn_label=None) %}
-<div class="empty-state text-center py-5">
-  <i class="bi {{ icon }} fs-1 text-muted d-block mb-3"></i>
+{% macro empty_state(icon, title, text, btn_url=None, btn_label=None, compact=False) %}
+<div class="empty-state text-center {% if compact %}py-4{% else %}py-5{% endif %}">
+  <i class="bi {{ icon }} {% if compact %}fs-2{% else %}fs-1{% endif %} text-muted d-block mb-3"></i>
   <h6 class="mb-2">{{ title }}</h6>
   <p class="text-muted small mb-3">{{ text }}</p>
   {% if btn_url and btn_label %}

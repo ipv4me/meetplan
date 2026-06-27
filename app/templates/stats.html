@@ -1,12 +1,15 @@
 {% extends "base.html" %}
+{% from '_macros.html' import page_header, empty_state %}
 {% block title %}Статистика — MeetPlan{% endblock %}
 {% block topbar_title %}Статистика{% endblock %}
 {% block content %}
+{{ page_header('Статистика встреч', 'Сводка за текущий месяц по вашим встречам и организации.', url_for('main.new_meeting'), 'Создать встречу', 'bi-calendar-plus') }}
+
 <div class="row g-3">
   <div class="col-12 col-lg-6">
     <div class="card content-card stat-panel h-100">
       <div class="card-body">
-        <h5 class="mb-3">Мои встречи — {{ month_label }}</h5>
+        <h6 class="mb-3 fw-semibold">Мои встречи — {{ month_label }}</h6>
         <div class="stat-grid stat-grid-metrics">
           <div class="stat-item"><span class="stat-num">{{ my_counts.total }}</span><span class="stat-label">Всего</span></div>
           <div class="stat-item"><span class="stat-num text-primary">{{ my_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
@@ -14,6 +17,9 @@
           <div class="stat-item"><span class="stat-num text-danger">{{ my_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
           <div class="stat-item"><span class="stat-num text-muted">{{ my_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
         </div>
+        {% if my_counts.total == 0 %}
+        {{ empty_state('bi-bar-chart', 'В этом месяце встреч не было', 'Создайте первую встречу с коллегой — статистика обновится автоматически.', url_for('main.new_meeting'), 'Создать встречу', compact=True) }}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -21,7 +27,7 @@
   <div class="col-12 col-lg-6">
     <div class="card content-card stat-panel h-100">
       <div class="card-body">
-        <h5 class="mb-3">Организация — {{ month_label }}</h5>
+        <h6 class="mb-1 fw-semibold">Организация — {{ month_label }}</h6>
         <p class="text-muted small mb-3">Доступно администратору организации.</p>
         <div class="stat-grid stat-grid-metrics">
           <div class="stat-item"><span class="stat-num">{{ org_counts.total }}</span><span class="stat-label">Запросов</span></div>
@@ -30,6 +36,9 @@
           <div class="stat-item"><span class="stat-num text-danger">{{ org_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
           <div class="stat-item"><span class="stat-num text-muted">{{ org_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
         </div>
+        {% if org_counts.total == 0 %}
+        {{ empty_state('bi-building', 'В организации пока нет активности', 'Когда участники начнут назначать встречи, здесь появится статистика.', compact=True) }}
+        {% endif %}
       </div>
     </div>
   </div>
