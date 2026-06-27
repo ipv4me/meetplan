@@ -392,9 +392,20 @@ function rightToolbar() {
     : "addEvent dayGridMonth,timeGridWeek,timeGridDay";
 }
 
-/* компактный рендер события: время и заголовок — по строке с многоточием */
+/* компактный рендер события: время + заголовок — по строке с многоточием */
 function renderEventContent(arg) {
   if (arg.view.type.startsWith("list")) return renderListEventContent(arg);
+  if (arg.view.type.startsWith("dayGrid")) {
+    const time = arg.timeText
+      ? '<span class="ev-month-time">' + arg.timeText + "</span>"
+      : "";
+    return {
+      html:
+        '<div class="ev-month">' +
+        time +
+        '<span class="ev-month-title">' + escapeHtml(arg.event.title) + "</span></div>",
+    };
+  }
   if (!arg.view.type.startsWith("timeGrid")) return;
   return {
     html:

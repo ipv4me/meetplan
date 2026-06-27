@@ -257,13 +257,41 @@ img.avatar { object-fit: cover; }
 /* пастельные события с цветной левой полосой — как на макете */
 .fc-event {
   cursor: pointer;
-  border-width: 1px 1px 1px 4px !important;
   border-radius: 6px;
-  padding: 1px 2px;
   font-weight: 500;
 }
+/* неделя / день — блок с левой полосой */
+.fc-timegrid-event.fc-event {
+  border-width: 1px 1px 1px 4px !important;
+  padding: 1px 2px;
+}
 .fc-v-event .fc-event-main { padding: 1px 3px; }
-/* компактный контент события: каждая строка в одну линию с многоточием */
+/* месяц — компактная полоска без «двойной» рамки */
+.fc-daygrid-event.fc-event {
+  border-width: 0 0 0 3px !important;
+  border-style: solid;
+  padding: 3px 5px;
+  margin-top: 1px;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.fc-daygrid-event .fc-event-main {
+  overflow: hidden;
+  padding: 0;
+}
+.fc .ev-month {
+  display: block;
+  line-height: 1.3;
+  font-size: .72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc .ev-month-time {
+  font-weight: 600;
+  margin-right: 3px;
+}
+/* компактный контент события (неделя/день): каждая строка в одну линию с многоточием */
 .fc .ev-content { overflow: hidden; line-height: 1.2; }
 .fc .ev-time { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc .ev-title { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
