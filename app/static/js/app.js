@@ -651,6 +651,16 @@ function showToast(title, body, reqId) {
   });
 }
 
+function cancelMeeting(eventId) {
+  if (!confirm("Отменить эту встречу?")) return;
+  $.ajax({
+    url: "/api/meetings/" + eventId + "/cancel",
+    type: "POST",
+    success: function () { location.reload(); },
+    error: function () { alert("Не удалось отменить встречу"); },
+  });
+}
+
 /* ---------- Ответ на запрос встречи (AJAX) ---------- */
 function respondRequest(reqId, action, silent) {
   $.ajax({
@@ -682,15 +692,18 @@ function initMeetingConflictCheck() {
   const date = form.querySelector('[name="date"]');
   const start = form.querySelector('[name="start_time"]');
   const end = form.querySelector('[name="end_time"]');
-  function check() {
+    const excludeId = form.dataset.excludeEventId;
+    function check() {
     if (!toUser.value || !date.value || !start.value || !end.value) return;
     const startIso = date.value + "T" + start.value + ":00";
     const endIso = date.value + "T" + end.value + ":00";
+    const payload = { to_user: toUser.value, start: startIso, end: endIso };
+    if (excludeId) payload.exclude_event_id = excludeId;
     $.ajax({
       url: "/api/meetings/check-conflicts",
       type: "POST",
       contentType: "application/json",
-      data: JSON.stringify({ to_user: toUser.value, start: startIso, end: endIso }),
+      data: JSON.stringify(payload),
       success: function (res) {
         if (!warn) return;
         if (res.conflicts && res.conflicts.length) {

@@ -234,7 +234,44 @@ def test_meeting_cancel_by_invitee(client, app):
 
 def test_health(client):
     r = client.get("/health")
-    assert r.get_json()["ok"] is True
+    data = r.get_json()
+    assert data["ok"] is True
+    assert data.get("db") == "ok"
+
+
+def test_email_normalized(client, app):
+    _register(client, "Owner", "Owner@TEST.com")
+    with app.app_context():
+        user = User.query.filter_by(email="owner@test.com").first()
+        assert user is not None
+        assert user.is_admin
+
+
+def test_avatar_org_isolation(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "bob", "bob@test.com")
+    with app.app_context():
+        bob = User.query.filter_by(email="bob@test.com").first()
+        bob.organization_id = 2
+        db.session.commit()
+        bob_id = bob.id
+
+    _login(client, "alice@test.com")
+    assert client.get(f"/avatars/{bob_id}").status_code == 404
+
+
+def test_calendar_events_utc_format(client, app):
+    _register(client, "tzuser", "tz@test.com")
+    _login(client, "tz@test.com")
+    client.post("/api/events", json={
+        "title": "Meet",
+        "start": "2026-08-01T10:00:00",
+        "end": "2026-08-01T11:00:00",
+    })
+    r = client.get("/api/events")
+    events = r.get_json()
+    assert events
+    assert events[0]["start"].endswith("Z")
 
 
 def test_task_update(client, app):

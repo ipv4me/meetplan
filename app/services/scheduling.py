@@ -1,10 +1,11 @@
 """Логика занятости, конфликтов и поиска свободного времени."""
 
-from datetime import datetime, timedelta, time as dt_time, date
+from datetime import datetime, timedelta, time as dt_time
 
 from app import db
 from app.models import Event, EventParticipant, Task, MeetingRequest, User
 from app.utils import STATUS_REJECTED, STATUS_CANCELLED
+from app.time_utils import local_to_utc, user_timezone, local_today, utcnow, format_dt
 
 WORK_START = dt_time(7, 0)
 WORK_END = dt_time(22, 0)
@@ -20,8 +21,9 @@ def _active_meeting_status_ids():
 
 
 def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
-    """Интервалы занятости пользователя в заданном диапазоне."""
+    """Интервалы занятости пользователя в заданном диапазоне (UTC)."""
     blocks = []
+    user = db.session.get(User, user_id)
 
     personal_q = Event.query.filter(
         Event.created_by == user_id,
@@ -63,24 +65,24 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
             "kind": "meeting",
         })
 
-    tasks = (
-        Task.query
-        .filter_by(user_id=user_id, done=False)
-        .filter(Task.due_date.isnot(None))
-        .all()
-    )
-    for task in tasks:
-        start_t = task.due_time or dt_time(9, 0)
-        start = datetime.combine(task.due_date, start_t)
-        end = start + timedelta(hours=1)
-        if _overlaps(start, end, range_start, range_end):
-            blocks.append({
-                "user_id": user_id,
-                "start": start,
-                "end": end,
-                "title": task.title,
-                "kind": "task",
-            })
+    if user:
+        from app.time_utils import task_block_utc
+        tasks = (
+            Task.query
+            .filter_by(user_id=user_id, done=False)
+            .filter(Task.due_date.isnot(None))
+            .all()
+        )
+        for task in tasks:
+            start, end = task_block_utc(task, user)
+            if _overlaps(start, end, range_start, range_end):
+                blocks.append({
+                    "user_id": user_id,
+                    "start": start,
+                    "end": end,
+                    "title": task.title,
+                    "kind": "task",
+                })
 
     return blocks
 
@@ -105,28 +107,33 @@ def find_conflicts(user_ids, start, end, exclude_event_id=None):
     return conflicts
 
 
-def mutual_free_slots(user_a_id, user_b_id, days=7):
-    """Свободные часовые слоты для двух пользователей на ближайшие days дней."""
-    today = date.today()
+def mutual_free_slots(user_a_id, user_b_id, days=7, viewer=None):
+    """Свободные слоты для двух пользователей (границы дня — в TZ viewer)."""
+    tz = user_timezone(viewer)
+    today = local_today(viewer) if viewer else utcnow().date()
     slots = []
     day = today
     end_day = today + timedelta(days=days)
 
     while day < end_day:
-        slot_start = datetime.combine(day, WORK_START)
-        day_end = datetime.combine(day, WORK_END)
-        while slot_start + timedelta(minutes=SLOT_MINUTES) <= day_end:
-            slot_end = slot_start + timedelta(minutes=SLOT_MINUTES)
-            c1 = find_conflicts([user_a_id], slot_start, slot_end)
-            c2 = find_conflicts([user_b_id], slot_start, slot_end)
-            if not c1 and not c2:
+        slot_start_local = datetime.combine(day, WORK_START)
+        day_end_local = datetime.combine(day, WORK_END)
+        while slot_start_local + timedelta(minutes=SLOT_MINUTES) <= day_end_local:
+            slot_end_local = slot_start_local + timedelta(minutes=SLOT_MINUTES)
+            slot_start = local_to_utc(slot_start_local, tz)
+            slot_end = local_to_utc(slot_end_local, tz)
+            if not find_conflicts([user_a_id], slot_start, slot_end) and not find_conflicts(
+                [user_b_id], slot_start, slot_end
+            ):
                 slots.append({
                     "date": day.isoformat(),
-                    "start": slot_start.strftime("%H:%M"),
-                    "end": slot_end.strftime("%H:%M"),
-                    "label": slot_start.strftime("%d.%m.%Y %H:%M – ") + slot_end.strftime("%H:%M"),
+                    "start": slot_start_local.strftime("%H:%M"),
+                    "end": slot_end_local.strftime("%H:%M"),
+                    "label": format_dt(slot_start, viewer, "%d.%m.%Y %H:%M")
+                    + " – "
+                    + format_dt(slot_end, viewer, "%H:%M"),
                 })
-            slot_start = slot_end
+            slot_start_local = slot_end_local
         day += timedelta(days=1)
 
     return slots[:42]

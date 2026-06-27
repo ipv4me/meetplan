@@ -2,7 +2,9 @@
 
 from datetime import datetime, time as dt_time, timedelta
 
-from app.models import Event, EventParticipant, MeetingRequest, Task
+from app import db
+from app.models import Event, EventParticipant, MeetingRequest, Task, User
+from app.time_utils import utc_iso, task_block_utc, user_timezone
 
 # Насыщенные цвета (легенда, левая полоса события)
 COLOR_PERSONAL = "#f59e0b"   # личные дела — жёлтый
@@ -48,16 +50,11 @@ def status_label(status_id):
 
 
 def events_for_user(user_id, viewer_id=None):
-    """Список событий пользователя в формате FullCalendar.
-
-    Включает личные события пользователя и встречи, в которых он участвует.
-    При просмотре чужого календаря (viewer_id != user_id) личные дела
-    показываются как «Занят» без деталей.
-    """
+    """Список событий пользователя в формате FullCalendar."""
     result = []
     is_self = viewer_id is None or viewer_id == user_id
+    owner = db.session.get(User, user_id)
 
-    # Личные события, созданные пользователем
     personal = Event.query.filter_by(created_by=user_id, event_type="personal").all()
     for ev in personal:
         if is_self:
@@ -65,10 +62,6 @@ def events_for_user(user_id, viewer_id=None):
         else:
             result.append(_to_fc_busy(ev))
 
-    # Встречи, где пользователь — участник.
-    # Цвет/статус берём из запроса на встречу (общий для обоих участников),
-    # а не из персонального статуса — иначе создатель видел бы свою встречу
-    # подтверждённой ещё до ответа приглашённого.
     parts = (
         EventParticipant.query
         .join(Event, Event.id == EventParticipant.event_id)
@@ -82,31 +75,29 @@ def events_for_user(user_id, viewer_id=None):
             continue
         result.append(_to_fc(p.event, status_id, is_owner=(p.event.created_by == user_id)))
 
-    if is_self:
-        result.extend(_tasks_to_fc(user_id))
+    if is_self and owner:
+        result.extend(_tasks_to_fc(owner))
 
     return result
 
 
-def _tasks_to_fc(user_id):
-    """Задачи с датой — блоки в личном календаре."""
+def _tasks_to_fc(user):
+    """Задачи с датой — блоки в личном календаре (UTC для FullCalendar)."""
     items = []
     tasks = (
         Task.query
-        .filter_by(user_id=user_id, done=False)
+        .filter_by(user_id=user.id, done=False)
         .filter(Task.due_date.isnot(None))
         .all()
     )
     for task in tasks:
-        start_t = task.due_time or dt_time(9, 0)
-        start = datetime.combine(task.due_date, start_t)
-        end = start + timedelta(hours=1)
+        utc_start, utc_end = task_block_utc(task, user)
         bg, border, text = STYLE_TASK
         items.append({
             "id": f"task-{task.id}",
             "title": task.title,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
+            "start": utc_iso(utc_start),
+            "end": utc_iso(utc_end),
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,
@@ -132,8 +123,8 @@ def _to_fc(ev, status_id, is_owner=False):
     return {
         "id": ev.id,
         "title": ev.title,
-        "start": ev.start_datetime.isoformat(),
-        "end": ev.end_datetime.isoformat(),
+        "start": utc_iso(ev.start_datetime),
+        "end": utc_iso(ev.end_datetime),
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,
@@ -156,8 +147,8 @@ def _to_fc_busy(ev):
     return {
         "id": ev.id,
         "title": "Занят",
-        "start": ev.start_datetime.isoformat(),
-        "end": ev.end_datetime.isoformat(),
+        "start": utc_iso(ev.start_datetime),
+        "end": utc_iso(ev.end_datetime),
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,

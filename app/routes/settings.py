@@ -6,7 +6,7 @@ from app.models import User
 from app.forms import ChangePasswordForm, AvatarForm, TimezoneForm
 from app.helpers import (
     pending_count, MAX_AVATAR_BYTES, guess_image_mimetype,
-    remove_legacy_avatar_file, validate_avatar_image,
+    remove_legacy_avatar_file, validate_avatar_image, ensure_viewable_user,
 )
 from app.time_utils import TIMEZONE_CHOICES
 from app.routes import bp
@@ -75,6 +75,7 @@ def upload_avatar():
 @bp.route("/avatars/<int:user_id>")
 @login_required
 def user_avatar(user_id):
+    ensure_viewable_user(user_id)
     user = db.session.get(User, user_id)
     if user is None or not user.avatar_data:
         abort(404)

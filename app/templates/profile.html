@@ -13,7 +13,7 @@
       {% if current_user.is_admin %}<span class="badge bg-primary">Администратор</span>{% endif %}
     </p>
     {% endif %}
-    <p class="small text-muted mt-2">В системе с {{ current_user.created_at.strftime('%d.%m.%Y') }}</p>
+    <p class="small text-muted mt-2">В системе с {{ current_user.created_at|user_dt('%d.%m.%Y') }}</p>
     <div class="d-flex gap-2 justify-content-center mt-3 flex-wrap">
       <a href="{{ url_for('main.settings') }}" class="btn btn-outline-primary btn-sm">Настройки</a>
       <a href="{{ url_for('main.stats') }}" class="btn btn-outline-secondary btn-sm">Статистика</a>

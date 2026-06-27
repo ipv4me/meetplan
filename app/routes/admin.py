@@ -17,10 +17,10 @@ from app.routes import bp
 @admin_required
 def admin_users():
     org_id = current_user.organization_id
-    q = User.query.order_by(User.username)
-    if org_id:
-        q = q.filter_by(organization_id=org_id)
-    members = q.all()
+    if not org_id:
+        members = User.query.filter_by(id=current_user.id).all()
+    else:
+        members = User.query.filter_by(organization_id=org_id).order_by(User.username).all()
     bootstrap = {u.id for u in members if is_bootstrap_admin(u)}
     return render_template(
         "admin_users.html",

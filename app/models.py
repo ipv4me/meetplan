@@ -4,6 +4,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db
+from app.time_utils import utcnow
 
 
 class Organization(db.Model):
@@ -11,7 +12,7 @@ class Organization(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     def __repr__(self):
         return f"<Organization {self.name}>"
@@ -30,7 +31,7 @@ class User(UserMixin, db.Model):
     organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"))
     role = db.Column(db.String(16), default="member", nullable=False)
     timezone = db.Column(db.String(64), default="Europe/Moscow", nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     organization = db.relationship("Organization")
 
@@ -80,7 +81,7 @@ class Event(db.Model):
     # 'personal' — личное дело, 'meeting' — встреча
     event_type = db.Column(db.String(16), nullable=False, default="personal")
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     participants = db.relationship(
         "EventParticipant", backref="event", lazy="dynamic",
@@ -103,7 +104,7 @@ class MeetingRequest(db.Model):
     from_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     to_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     status_id = db.Column(db.Integer, db.ForeignKey("statuses.id"), nullable=False, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     from_user = db.relationship("User", foreign_keys=[from_user_id])
     to_user = db.relationship("User", foreign_keys=[to_user_id])
@@ -137,7 +138,7 @@ class Task(db.Model):
     due_time = db.Column(db.Time)  # необязательное время
     done = db.Column(db.Boolean, default=False, nullable=False)
     color = db.Column(db.String(16), default="#3b82f6")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     @property
     def due_display(self):

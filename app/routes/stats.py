@@ -8,14 +8,14 @@ from app import db
 from app.models import Event, EventParticipant, MeetingRequest, User
 from app.utils import STATUS_PENDING, STATUS_CONFIRMED, STATUS_REJECTED, STATUS_CANCELLED
 from app.helpers import pending_count, USERS_PER_PAGE
-from app.time_utils import format_month_year, user_timezone
+from app.time_utils import format_month_year, user_timezone, utcnow
 from app.routes import bp
 
 
 @bp.route("/stats")
 @login_required
 def stats():
-    now = datetime.utcnow()
+    now = utcnow()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     my_participations = (

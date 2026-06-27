@@ -8,16 +8,22 @@ from app.helpers import rate_limit, apply_bootstrap_admin_role, record_failed_lo
 from app.routes import bp
 
 
+def _normalize_email(email):
+    return (email or "").strip().lower()
+
+
 @bp.route("/register", methods=["GET", "POST"])
+@rate_limit("register")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for("main.calendar"))
     form = RegistrationForm()
     if form.validate_on_submit():
         org = Organization.query.first()
+        email = _normalize_email(form.email.data)
         user = User(
-            username=form.username.data,
-            email=form.email.data,
+            username=form.username.data.strip(),
+            email=email,
             organization_id=org.id if org else None,
             role="member",
             timezone=current_app.config.get("DEFAULT_USER_TIMEZONE", "Europe/Moscow"),
@@ -28,6 +34,8 @@ def register():
         db.session.commit()
         flash("Регистрация прошла успешно. Теперь войдите.", "success")
         return redirect(url_for("main.login"))
+    if request.method == "POST" and form.errors:
+        record_failed_login("register")
     return render_template("register.html", form=form)
 
 
@@ -40,7 +48,8 @@ def login():
     if form.validate_on_submit():
         if current_user.is_authenticated:
             logout_user()
-        user = User.query.filter_by(email=form.email.data).first()
+        email = _normalize_email(form.email.data)
+        user = User.query.filter_by(email=email).first()
         if user is None or not user.check_password(form.password.data):
             record_failed_login("login")
             flash("Неверный email или пароль.", "danger")

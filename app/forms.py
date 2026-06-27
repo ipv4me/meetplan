@@ -26,7 +26,9 @@ class RegistrationForm(FlaskForm):
             raise ValidationError("Это имя уже занято.")
 
     def validate_email(self, field):
-        if User.query.filter_by(email=field.data).first():
+        email = field.data.strip().lower()
+        field.data = email
+        if User.query.filter_by(email=email).first():
             raise ValidationError("Этот email уже зарегистрирован.")
 
 
@@ -35,6 +37,9 @@ class LoginForm(FlaskForm):
     password = PasswordField("Пароль", validators=[DataRequired()])
     remember = BooleanField("Запомнить меня")
     submit = SubmitField("Войти")
+
+    def validate_email(self, field):
+        field.data = field.data.strip().lower()
 
 
 class AvatarForm(FlaskForm):

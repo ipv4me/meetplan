@@ -5,6 +5,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_migrate import Migrate
+from sqlalchemy import inspect
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 
@@ -43,13 +45,22 @@ def create_app(config_class=Config):
     ):
         raise RuntimeError("Set SECRET_KEY environment variable in production.")
 
+    if os.environ.get("FLASK_ENV") == "production":
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     from app.routes import bp as main_bp
 
     app.register_blueprint(main_bp)
 
     with app.app_context():
-        db.create_all()
-        ensure_schema()
+        is_prod = os.environ.get("FLASK_ENV") == "production"
+        is_test = app.config.get("TESTING")
+        has_tables = bool(inspect(db.engine).get_table_names())
+
+        if is_test or not is_prod or not has_tables:
+            db.create_all()
+        if not is_prod:
+            ensure_schema()
         seed_statuses()
         seed_organizations()
         assign_default_organization()

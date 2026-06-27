@@ -5,7 +5,7 @@
 <div class="card content-card form-card">
   <div class="card-body">
     <h5 class="mb-3">{{ form_title }}</h5>
-    <form method="POST" novalidate class="meeting-form">
+    <form method="POST" novalidate class="meeting-form"{% if exclude_event_id %} data-exclude-event-id="{{ exclude_event_id }}"{% endif %}>
       {{ form.hidden_tag() }}
       <div id="conflictWarn" class="alert alert-warning small py-2 d-none mb-3"></div>
       <div class="mb-3">

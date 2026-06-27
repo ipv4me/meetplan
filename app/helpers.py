@@ -7,6 +7,8 @@ from time import time
 from flask import current_app, request, abort
 from flask_login import current_user
 
+from sqlalchemy import false
+
 from app import db
 from app.models import MeetingRequest, User
 from app.utils import STATUS_PENDING
@@ -108,10 +110,14 @@ def get_colleague(user_id):
 
 def colleagues_query():
     """Пользователи той же организации, кроме текущего."""
-    q = User.query.filter(User.id != current_user.id)
-    if current_user.organization_id:
-        q = q.filter(User.organization_id == current_user.organization_id)
-    return q.order_by(User.username)
+    if not current_user.organization_id:
+        return User.query.filter(false())
+    return (
+        User.query
+        .filter(User.id != current_user.id)
+        .filter(User.organization_id == current_user.organization_id)
+        .order_by(User.username)
+    )
 
 
 def valid_colleague_ids():
@@ -154,7 +160,29 @@ def validate_avatar_image(data):
 
 
 def _rate_key(scope):
-    return f"{scope}:{request.remote_addr or 'unknown'}"
+    return f"{scope}:{client_ip()}"
+
+
+def client_ip():
+    """IP клиента с учётом reverse proxy (Render)."""
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def can_view_user(user_id):
+    """Себя или коллегу из org — для аватаров и т.п."""
+    if not current_user.is_authenticated:
+        return False
+    if user_id == current_user.id:
+        return True
+    return get_colleague(user_id) is not None
+
+
+def ensure_viewable_user(user_id):
+    if not can_view_user(user_id):
+        abort(404)
 
 
 def check_rate_limit(scope="login"):

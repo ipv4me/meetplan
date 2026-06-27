@@ -1,6 +1,6 @@
 """Часовые пояса: хранение в UTC (naive), отображение в локальном."""
 
-from datetime import datetime, timezone
+from datetime import datetime, time as dt_time, timedelta, timezone, date
 from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "Europe/Moscow"
@@ -21,6 +21,36 @@ TIMEZONE_CHOICES = [
     ("Europe/Berlin", "Берлин"),
     ("America/New_York", "Нью-Йорк"),
 ]
+
+
+def utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def utc_iso(dt):
+    """Naive UTC datetime → ISO 8601 с суффиксом Z для FullCalendar."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def local_today(user):
+    return utc_to_local(utcnow(), user_timezone(user)).date()
+
+
+def task_block_utc(task, user):
+    """Локальные due_date/due_time задачи → интервал UTC."""
+    start_t = task.due_time or dt_time(9, 0)
+    local_start = datetime.combine(task.due_date, start_t)
+    utc_start = local_to_utc(local_start, user_timezone(user))
+    return utc_start, utc_start + timedelta(hours=1)
+
+
+def timezone_label(name):
+    for tz_id, label in TIMEZONE_CHOICES:
+        if tz_id == name:
+            return label
+    return name or DEFAULT_TIMEZONE
 
 
 def resolve_tz(name):

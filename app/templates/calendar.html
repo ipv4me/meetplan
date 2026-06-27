@@ -8,6 +8,7 @@
 <div class="card content-card mb-3">
   <div class="card-body">
     <div id="calendar" data-timezone="{{ user_timezone }}"></div>
+    <p class="text-muted small mt-2 mb-0"><i class="bi bi-globe2"></i> Часовой пояс: {{ user_timezone_label }}</p>
     <div class="legend mt-3">
       <span><i class="dot-legend" style="background:#f59e0b"></i> Личные дела</span>
       <span><i class="dot-legend" style="background:#22c55e"></i> Задачи</span>
@@ -108,8 +109,8 @@
               <div class="text-muted small">хочет встретиться с вами</div>
             </div>
           </div>
-          <div class="small mb-1"><i class="bi bi-calendar3 me-1"></i>{{ latest_request.event.start_datetime.strftime('%d.%m.%Y') }}</div>
-          <div class="small mb-1"><i class="bi bi-clock me-1"></i>{{ latest_request.event.start_datetime.strftime('%H:%M') }} – {{ latest_request.event.end_datetime.strftime('%H:%M') }}</div>
+          <div class="small mb-1"><i class="bi bi-calendar3 me-1"></i>{{ latest_request.event.start_datetime|user_dt('%d.%m.%Y') }}</div>
+          <div class="small mb-1"><i class="bi bi-clock me-1"></i>{{ latest_request.event.start_datetime|user_dt('%H:%M') }} – {{ latest_request.event.end_datetime|user_dt('%H:%M') }}</div>
           <div class="small mb-1"><i class="bi bi-chat-left-text me-1"></i>{{ latest_request.event.title }}</div>
           {% if latest_request.event.description %}<div class="small text-muted mb-2">{{ latest_request.event.description }}</div>{% endif %}
           <span class="badge status-badge st-pending mb-3">Ожидает подтверждения</span>

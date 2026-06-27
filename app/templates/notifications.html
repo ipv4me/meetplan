@@ -6,23 +6,20 @@
   <div class="card-body">
     <h5 class="mb-3">Уведомления</h5>
     {% for r in incoming %}
-    <div class="task-row">
+    <div class="task-row" id="req-{{ r.id }}">
       <span class="task-dot" style="background:{{ r.status.color }}"></span>
       <div class="flex-grow-1">
         <div class="fw-semibold">{{ r.from_user.username }} приглашает на встречу</div>
         <div class="small">{{ r.event.title }}</div>
-        <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
+        <div class="text-muted small">{{ r.event.start_datetime|user_dt }}</div>
       </div>
-      {% if r.status_id == 1 %}
-      <a href="{{ url_for('main.requests_page') }}" class="btn btn-sm btn-primary">Ответить</a>
-      {% else %}
-      <span class="badge {{ 'st-confirmed' if r.status_id == 2 else 'st-rejected' }}">
-        {% if r.status_id == 2 %}Подтверждено{% else %}Отклонено{% endif %}
-      </span>
-      {% endif %}
+      <div class="request-actions d-flex gap-2">
+        <button class="btn btn-success btn-sm" onclick="respondRequest({{ r.id }}, 'confirm')">Принять</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="respondRequest({{ r.id }}, 'reject')">Отклонить</button>
+      </div>
     </div>
     {% else %}
-    <p class="text-muted text-center py-4">Уведомлений пока нет.</p>
+    <p class="text-muted text-center py-4">Новых уведомлений нет.</p>
     {% endfor %}
   </div>
 </div>

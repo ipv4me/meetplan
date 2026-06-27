@@ -11,10 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV FLASK_APP=wsgi.py \
+ENV FLASK_APP=run.py \
     FLASK_ENV=production \
     PYTHONUNBUFFERED=1
 
 EXPOSE 5001
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5001", "wsgi:app"]
+CMD ["sh", "-c", "gunicorn -w 2 -b 0.0.0.0:${PORT:-5001} wsgi:app"]

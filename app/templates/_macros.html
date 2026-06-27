@@ -14,25 +14,29 @@
 </span>
 {% endmacro %}
 
-{# Пагинация Bootstrap #}
+{# Пагинация Bootstrap (сохраняет текущие query-параметры) #}
 {% macro pagination_nav(p, param_name) %}
 {% if p.pages > 1 %}
 <nav class="mt-3" aria-label="Страницы">
   <ul class="pagination pagination-sm justify-content-center mb-0">
+    {% set args = request.args.to_dict(flat=True) %}
     <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for(request.endpoint, **{param_name: p.prev_num}) if p.has_prev else '#' }}">←</a>
+      {% set prev_args = args.copy() %}{% set _ = prev_args.update({param_name: p.prev_num}) %}
+      <a class="page-link" href="{{ url_for(request.endpoint, **prev_args) if p.has_prev else '#' }}">←</a>
     </li>
     {% for n in p.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
       {% if n %}
       <li class="page-item {% if n == p.page %}active{% endif %}">
-        <a class="page-link" href="{{ url_for(request.endpoint, **{param_name: n}) }}">{{ n }}</a>
+        {% set page_args = args.copy() %}{% set _ = page_args.update({param_name: n}) %}
+        <a class="page-link" href="{{ url_for(request.endpoint, **page_args) }}">{{ n }}</a>
       </li>
       {% else %}
       <li class="page-item disabled"><span class="page-link">…</span></li>
       {% endif %}
     {% endfor %}
     <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for(request.endpoint, **{param_name: p.next_num}) if p.has_next else '#' }}">→</a>
+      {% set next_args = args.copy() %}{% set _ = next_args.update({param_name: p.next_num}) %}
+      <a class="page-link" href="{{ url_for(request.endpoint, **next_args) if p.has_next else '#' }}">→</a>
     </li>
   </ul>
 </nav>

@@ -42,7 +42,7 @@ def free_time():
     if selected_id:
         selected_user = ensure_colleague(selected_id)
         if selected_user:
-            slots = mutual_free_slots(current_user.id, selected_id)
+            slots = mutual_free_slots(current_user.id, selected_id, viewer=current_user)
     return render_template(
         "free_time.html",
         users=others,
@@ -56,7 +56,7 @@ def free_time():
 @login_required
 def api_free_time(user_id):
     ensure_colleague(user_id)
-    return jsonify({"ok": True, "slots": mutual_free_slots(current_user.id, user_id)})
+    return jsonify({"ok": True, "slots": mutual_free_slots(current_user.id, user_id, viewer=current_user)})
 
 
 @bp.route("/profile")

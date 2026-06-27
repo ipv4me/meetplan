@@ -38,6 +38,22 @@ python run.py
 | `FLASK_ENV` | `production` на сервере |
 | `FLASK_DEBUG` | `0` на сервере, `1` локально |
 | `PORT` | Порт (по умолчанию 5001) |
+| `DEFAULT_USER_TIMEZONE` | Пояс новых пользователей (по умолчанию `Europe/Moscow`) |
+| `FLASK_APP` | `run.py` — для `flask db upgrade` |
+
+## Деплой на Render + Neon
+
+1. **Web Service** → Build: `pip install -r requirements.txt`, Start: `gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app`
+2. **Environment** (Render → Environment):
+   - `SECRET_KEY` — случайная строка
+   - `ADMIN_EMAILS` — ваш email
+   - `FLASK_ENV` = `production`
+   - `DATABASE_URL` — строка подключения Neon (с `?sslmode=require`)
+   - `FLASK_APP` = `run.py`
+3. **Pre-Deploy Command** (опционально): `flask db upgrade`
+4. Postgres на Render **не нужен**, если используете Neon.
+
+При первом деплое таблицы создаются автоматически, если БД пустая.
 
 ## Production
 

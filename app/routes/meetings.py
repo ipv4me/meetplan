@@ -6,11 +6,20 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Event, MeetingRequest, EventParticipant
 from app.forms import MeetingForm
-from app.utils import status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED
+from app.utils import status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED, STATUS_REJECTED
 from app.helpers import pending_count, meeting_user_choices, create_meeting_event, valid_colleague_ids, REQUESTS_PER_PAGE
-from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime, format_dt
+from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime, format_dt, utcnow
 from app.services.scheduling import find_conflicts
 from app.routes import bp
+
+
+def _render_meeting_form(form, title, exclude_event_id=None):
+    return render_template(
+        "meeting_form.html",
+        form=form,
+        form_title=title,
+        exclude_event_id=exclude_event_id,
+    )
 
 
 def _prefill_meeting_form(form):
@@ -27,7 +36,7 @@ def _prefill_meeting_form(form):
     if start_s:
         try:
             form.start_time.data = datetime.strptime(start_s, "%H:%M").time()
-            end_dt = datetime.combine(form.date.data or datetime.utcnow().date(), form.start_time.data)
+            end_dt = datetime.combine(form.date.data or utcnow().date(), form.start_time.data)
             form.end_time.data = (end_dt + timedelta(hours=1)).time()
         except ValueError:
             pass
@@ -52,7 +61,9 @@ def new_meeting():
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
             flash(f"Конфликт расписания у: {names}. Выберите другое время.", "danger")
-            return render_template("meeting_form.html", form=form, form_title="Создать встречу")
+            return render_template(
+                "meeting_form.html", form=form, form_title="Создать встречу",
+            )
         create_meeting_event(
             current_user.id, form.to_user.data, form.title.data,
             form.description.data, start, end,
@@ -63,7 +74,7 @@ def new_meeting():
 
     if request.method == "GET":
         _prefill_meeting_form(form)
-    return render_template("meeting_form.html", form=form, form_title="Создать встречу")
+    return _render_meeting_form(form, "Создать встречу")
 
 
 @bp.route("/meeting/<int:event_id>/edit", methods=["GET", "POST"])
@@ -87,7 +98,7 @@ def edit_meeting(event_id):
     if form.validate_on_submit():
         if form.to_user.data not in valid_colleague_ids():
             flash("Выберите участника из вашей организации.", "danger")
-            return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
         )
@@ -97,7 +108,7 @@ def edit_meeting(event_id):
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
             flash(f"Конфликт расписания у: {names}.", "danger")
-            return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
         ev.title = form.title.data
         ev.description = form.description.data
         ev.start_datetime = start
@@ -111,7 +122,7 @@ def edit_meeting(event_id):
         db.session.commit()
         flash("Встреча обновлена, запрос отправлен повторно.", "success")
         return redirect(url_for("main.calendar"))
-    return render_template("meeting_form.html", form=form, form_title="Редактировать встречу")
+    return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
 
 
 @bp.route("/api/meetings/check-conflicts", methods=["POST"])
@@ -147,8 +158,8 @@ def api_cancel_meeting(event_id):
     req = ev.request
     if current_user.id not in (req.from_user_id, req.to_user_id):
         abort(403)
-    if req.status_id in (STATUS_CANCELLED,):
-        return jsonify({"ok": True, "label": status_label(STATUS_CANCELLED)})
+    if req.status_id in (STATUS_CANCELLED, STATUS_REJECTED):
+        return jsonify({"ok": True, "label": status_label(req.status_id)})
     req.status_id = STATUS_CANCELLED
     for part in EventParticipant.query.filter_by(event_id=ev.id).all():
         part.status_id = STATUS_CANCELLED
@@ -215,7 +226,7 @@ def api_request_action(req_id, action):
 def notifications():
     incoming = (
         MeetingRequest.query
-        .filter_by(to_user_id=current_user.id)
+        .filter_by(to_user_id=current_user.id, status_id=STATUS_PENDING)
         .order_by(MeetingRequest.created_at.desc())
         .all()
     )
