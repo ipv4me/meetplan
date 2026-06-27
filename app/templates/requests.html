@@ -22,7 +22,7 @@
         {% for r in incoming %}
         <div class="request-card" id="req-{{ r.id }}">
           {{ avatar(r.from_user) }}
-          <div class="flex-grow-1">
+          <div class="request-main">
             <div class="fw-semibold">{{ r.from_user.username }}</div>
             <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
             <div class="small">{{ r.event.title }}</div>
@@ -48,7 +48,7 @@
         {% for r in outgoing %}
         <div class="request-card">
           {{ avatar(r.to_user) }}
-          <div class="flex-grow-1">
+          <div class="request-main">
             <div class="fw-semibold">{{ r.to_user.username }}</div>
             <div class="text-muted small">{{ r.event.start_datetime.strftime('%d.%m.%Y в %H:%M') }}</div>
             <div class="small">{{ r.event.title }}</div>

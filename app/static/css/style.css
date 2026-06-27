@@ -25,6 +25,7 @@
 }
 
 * { box-sizing: border-box; }
+.min-w-0 { min-width: 0; }
 body {
   margin: 0;
   background: var(--bg);
@@ -229,7 +230,20 @@ img.avatar { object-fit: cover; }
   border: 1px solid var(--border); border-radius: 12px;
   padding: 14px; margin-bottom: 12px;
 }
+.request-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.request-main .small,
+.request-card .text-muted.small {
+  overflow-wrap: anywhere;
+}
 .request-actions { display: flex; flex-direction: column; gap: 6px; }
+.request-actions-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .status-badge { font-weight: 600; }
 
 /* тема-зависимые бейджи статусов (читаемы и в светлой, и в тёмной теме) */
@@ -312,6 +326,34 @@ img.avatar { object-fit: cover; }
   .main-area { margin-left: 0; }
   .content { padding: 12px; padding-bottom: calc(var(--bottom-h) + 20px); }
   .flash-area { padding: 0 12px; }
+  .request-card {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .request-card .avatar {
+    margin-top: 2px;
+  }
+  .request-main {
+    flex-basis: calc(100% - 52px);
+  }
+  .request-actions {
+    flex: 1 1 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding-left: 52px;
+  }
+  .request-actions .btn {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .user-calendar-head {
+    flex-wrap: wrap;
+  }
+  .user-calendar-head .btn {
+    flex: 1 1 100%;
+    margin-left: 52px !important;
+  }
   /* тулбар календаря: аккуратно в три строки по центру */
   .fc .fc-toolbar.fc-header-toolbar {
     flex-direction: column; align-items: center; gap: 10px; margin-bottom: 12px;

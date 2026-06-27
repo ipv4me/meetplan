@@ -176,10 +176,16 @@ function renderEventContent(arg) {
 }
 
 function initCalendar(el) {
+  const eventsUrl = el.dataset.eventsUrl || "/api/events";
+  const isReadOnly = eventsUrl !== "/api/events";
   calendar = new FullCalendar.Calendar(el, {
     locale: "ru",
     initialView: isMobile() ? "timeGridDay" : "timeGridWeek",
-    headerToolbar: { left: "today prev,next", center: "title", right: rightToolbar() },
+    headerToolbar: {
+      left: "today prev,next",
+      center: "title",
+      right: isReadOnly ? rightToolbar().replace("addEvent ", "") : rightToolbar(),
+    },
     customButtons: {
       addEvent: { text: "+ Событие", click: openNewEventModal },
     },
@@ -205,7 +211,7 @@ function initCalendar(el) {
           '<span class="dnum' + (arg.isToday ? " today" : "") + '">' + num + "</span></div>",
       };
     },
-    events: "/api/events",
+    events: eventsUrl,
     eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
     eventContent: renderEventContent,
     eventClick: function (info) {
@@ -223,7 +229,9 @@ function initCalendar(el) {
       lastMobile = now;
       calendar.changeView(now ? "timeGridDay" : "timeGridWeek");
       calendar.setOption("headerToolbar", {
-        left: "today prev,next", center: "title", right: rightToolbar(),
+        left: "today prev,next",
+        center: "title",
+        right: isReadOnly ? rightToolbar().replace("addEvent ", "") : rightToolbar(),
       });
     }
   });
@@ -255,14 +263,14 @@ function showEventDetails(event) {
 
   // удалять можно только личные дела (свои)
   const delBtn = document.getElementById("evDelete");
-  delBtn.style.display = props.type === "personal" ? "inline-block" : "none";
+  if (delBtn) delBtn.style.display = props.type === "personal" ? "inline-block" : "none";
 
   // изменять можно свои события (личное дело или встречу, где ты создатель)
   const editBtn = document.getElementById("evEdit");
-  if (props.isOwner) {
+  if (editBtn && props.isOwner) {
     editBtn.style.display = "inline-block";
     editBtn.href = (props.type === "personal" ? "/event/" : "/meeting/") + event.id + "/edit";
-  } else {
+  } else if (editBtn) {
     editBtn.style.display = "none";
   }
 

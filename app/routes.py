@@ -99,6 +99,16 @@ def api_events():
     return jsonify(events_for_user(current_user.id))
 
 
+@bp.route("/api/users/<int:user_id>/events")
+@login_required
+def api_user_events(user_id):
+    """Feed событий выбранного пользователя для просмотра занятости."""
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+    return jsonify(events_for_user(user.id))
+
+
 @bp.route("/api/events", methods=["POST"])
 @login_required
 def api_create_event():
@@ -401,6 +411,19 @@ def profile():
 def users():
     others = User.query.filter(User.id != current_user.id).order_by(User.username).all()
     return render_template("users.html", users=others, pending_count=_pending_count())
+
+
+@bp.route("/users/<int:user_id>/calendar")
+@login_required
+def user_calendar(user_id):
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+    return render_template(
+        "user_calendar.html",
+        viewed_user=user,
+        pending_count=_pending_count(),
+    )
 
 
 # -------------------------------- Настройки -------------------------------- #

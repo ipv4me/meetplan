@@ -9,13 +9,18 @@
     {% for u in users %}
     <div class="request-card">
       {{ avatar(u) }}
-      <div class="flex-grow-1">
+      <div class="request-main">
         <div class="fw-semibold">{{ u.username }}</div>
         <div class="text-muted small">{{ u.email }}</div>
       </div>
-      <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-calendar-plus"></i> Назначить встречу
-      </a>
+      <div class="request-actions request-actions-row">
+        <a href="{{ url_for('main.user_calendar', user_id=u.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-calendar-week"></i> Календарь
+        </a>
+        <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
+          <i class="bi bi-calendar-plus"></i> Назначить встречу
+        </a>
+      </div>
     </div>
     {% else %}
     <p class="text-muted text-center py-4">Других пользователей пока нет. Зарегистрируйте второго, чтобы назначать встречи.</p>

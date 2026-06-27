@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar %}
+{% block title %}Календарь {{ viewed_user.username }} — MeetPlan{% endblock %}
+{% block topbar_title %}Календарь участника{% endblock %}
+{% block content %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3 mb-3 user-calendar-head">
+      {{ avatar(viewed_user) }}
+      <div class="min-w-0">
+        <h5 class="mb-0">{{ viewed_user.username }}</h5>
+        <div class="text-muted small text-break">{{ viewed_user.email }}</div>
+      </div>
+      <a href="{{ url_for('main.new_meeting', to=viewed_user.id) }}" class="btn btn-primary btn-sm ms-auto">
+        <i class="bi bi-calendar-plus"></i> Назначить встречу
+      </a>
+    </div>
+    <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}"></div>
+    <div class="legend mt-3">
+      <span><i class="dot-legend" style="background:#f59e0b"></i> Личные дела</span>
+      <span><i class="dot-legend" style="background:#3b82f6"></i> Подтверждённые встречи</span>
+      <span><i class="dot-legend" style="background:#8b5cf6"></i> Ожидают подтверждения</span>
+      <span><i class="dot-legend" style="background:#ef4444"></i> Отклонённые</span>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="eventModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="evTitle">Событие</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2"><span class="badge" id="evStatus"></span></p>
+        <p class="mb-2"><i class="bi bi-clock"></i> <span id="evTime"></span></p>
+        <p class="mb-0 text-muted" id="evDesc"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
