@@ -7,6 +7,7 @@ Create Date: 2026-06-28 14:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 revision = "c3d4e5f6a7b8"
@@ -33,9 +34,9 @@ def upgrade():
                 )
             )
     if _has_column("friendships", "requester_shares_details"):
-        op.execute("UPDATE friendships SET requester_shares_details = 1")
+        op.execute(text("UPDATE friendships SET requester_shares_details = :val").bindparams(val=True))
     if _has_column("friendships", "addressee_shares_details"):
-        op.execute("UPDATE friendships SET addressee_shares_details = 1")
+        op.execute(text("UPDATE friendships SET addressee_shares_details = :val").bindparams(val=True))
 
 
 def downgrade():

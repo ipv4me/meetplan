@@ -72,6 +72,11 @@ def ensure_schema():
     """Лёгкая авто-миграция: добавляет недостающие колонки в существующую БД."""
     from sqlalchemy import inspect, text
 
+    def bool_default(value):
+        if db.engine.dialect.name == "postgresql":
+            return "TRUE" if value else "FALSE"
+        return "1" if value else "0"
+
     inspector = inspect(db.engine)
     if "users" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("users")]
@@ -106,7 +111,8 @@ def ensure_schema():
         cols = [c["name"] for c in inspector.get_columns("users")]
         if "hide_calendar_details_from_friends" not in cols:
             db.session.execute(text(
-                "ALTER TABLE users ADD COLUMN hide_calendar_details_from_friends BOOLEAN DEFAULT 0 NOT NULL"
+                "ALTER TABLE users ADD COLUMN hide_calendar_details_from_friends "
+                f"BOOLEAN DEFAULT {bool_default(False)} NOT NULL"
             ))
             db.session.commit()
     if "friendships" not in inspector.get_table_names():
@@ -116,13 +122,15 @@ def ensure_schema():
         cols = [c["name"] for c in inspector.get_columns("friendships")]
         if "requester_shares_details" not in cols:
             db.session.execute(text(
-                "ALTER TABLE friendships ADD COLUMN requester_shares_details BOOLEAN DEFAULT 1 NOT NULL"
+                "ALTER TABLE friendships ADD COLUMN requester_shares_details "
+                f"BOOLEAN DEFAULT {bool_default(True)} NOT NULL"
             ))
             db.session.commit()
         cols = [c["name"] for c in inspector.get_columns("friendships")]
         if "addressee_shares_details" not in cols:
             db.session.execute(text(
-                "ALTER TABLE friendships ADD COLUMN addressee_shares_details BOOLEAN DEFAULT 1 NOT NULL"
+                "ALTER TABLE friendships ADD COLUMN addressee_shares_details "
+                f"BOOLEAN DEFAULT {bool_default(True)} NOT NULL"
             ))
             db.session.commit()
     if "tasks" in inspector.get_table_names():
