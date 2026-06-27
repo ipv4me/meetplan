@@ -47,18 +47,30 @@
   <h6 class="admin-section-title"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Требуют внимания</h6>
   <div class="admin-attention-grid">
     {% if overview.pending_friends %}
-    <div class="admin-attention-item">
+    <a href="#admin-pending-friends" class="admin-attention-item text-decoration-none">
       <span class="admin-attention-num">{{ overview.pending_friends }}</span>
       <span class="admin-attention-label">Запросов в друзья без ответа</span>
-    </div>
+    </a>
     {% endif %}
     {% if overview.pending_meetings %}
-    <div class="admin-attention-item">
+    <a href="{{ url_for('main.requests_page', tab='incoming') }}" class="admin-attention-item text-decoration-none">
       <span class="admin-attention-num">{{ overview.pending_meetings }}</span>
-      <span class="admin-attention-label">Встреч ждут подтверждения</span>
-    </div>
+      <span class="admin-attention-label">Встреч ждут подтверждения (все)</span>
+    </a>
     {% endif %}
   </div>
+  {% if pending_friendships %}
+  <div id="admin-pending-friends" class="admin-pending-list mt-3">
+    <p class="text-muted small mb-2">Последние запросы в друзья на платформе:</p>
+    {% for f in pending_friendships %}
+    <div class="admin-recent-row py-1">
+      <span class="small">{{ f.requester.username }}</span>
+      <span class="text-muted small mx-1">→</span>
+      <span class="small">{{ f.addressee.username }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 
@@ -115,14 +127,17 @@
 
 <section class="admin-section">
   <div class="card content-card">
-    <div class="card-body">
+    <div class="card-body" id="admin-users">
       {{ page_header(
         'Назначайте администраторов — они увидят эту панель. Владелец (email из ADMIN_EMAILS) не может быть понижен.',
         title='Пользователи и роли'
       ) }}
+      <input type="search" id="adminUserSearch" class="form-control form-control-sm mb-3"
+             placeholder="Поиск по имени или email…" autocomplete="off">
 
       {% for u in members %}
-      <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
+      <div class="request-card admin-user-row" data-user-id="{{ u.id }}"
+           data-search="{{ (u.username ~ ' ' ~ u.email)|lower }}">
         {{ avatar(u) }}
         <div class="request-main min-w-0">
           <div class="fw-semibold d-flex flex-wrap align-items-center gap-2">
@@ -199,5 +214,16 @@ document.querySelectorAll(".admin-role-btn").forEach(function (btn) {
     });
   });
 });
+
+const adminSearch = document.getElementById("adminUserSearch");
+if (adminSearch) {
+  adminSearch.addEventListener("input", function () {
+    const q = adminSearch.value.trim().toLowerCase();
+    document.querySelectorAll(".admin-user-row").forEach(function (row) {
+      const hay = row.dataset.search || "";
+      row.classList.toggle("d-none", q.length > 0 && !hay.includes(q));
+    });
+  });
+}
 </script>
 {% endblock %}

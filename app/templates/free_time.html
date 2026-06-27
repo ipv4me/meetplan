@@ -3,6 +3,9 @@
 {% block title %}Свободное время — MeetPlan{% endblock %}
 {% block topbar_title %}Свободное время{% endblock %}
 {% block content %}
+<a href="{{ url_for('main.calendar') }}" class="btn btn-outline-secondary btn-sm mb-3">
+  <i class="bi bi-arrow-left" aria-hidden="true"></i> К календарю
+</a>
 <div class="card content-card">
   <div class="card-body">
     {{ page_header('Выберите друга — покажем часовые слоты, когда вы оба свободны на ближайшую неделю.') }}

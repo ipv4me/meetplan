@@ -79,7 +79,11 @@ def api_friend_request():
     user_id = data.get("user_id")
     if not user_id:
         return jsonify({"ok": False, "error": "Выберите пользователя"}), 400
-    target = db.session.get(User, int(user_id))
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Некорректный пользователь"}), 400
+    target = db.session.get(User, user_id)
     if target is None:
         return jsonify({"ok": False, "error": "Пользователь не найден"}), 404
     if target.id == current_user.id:

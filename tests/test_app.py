@@ -571,3 +571,137 @@ def test_task_update(client, app):
     assert data["ok"] is True
     assert data["title"] == "New title"
     assert "09:30" in data["due"]
+
+
+def test_login_redirects_to_next(client, app):
+    _register(client, "host", "host@test.com")
+    _register(client, "guest", "guest@test.com")
+    with app.app_context():
+        token = User.query.filter_by(email="host@test.com").first().invite_token
+    client.post("/logout", follow_redirects=True)
+    r = client.get(f"/friends/join/{token}", follow_redirects=False)
+    assert r.status_code == 302
+    assert "login" in r.location
+    assert "next=" in r.location
+    r = client.post("/login", data={
+        "email": "guest@test.com",
+        "password": "secret123",
+        "next": f"/friends/join/{token}",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    assert f"/friends/join/{token}" in r.location
+
+
+def test_friend_request_invalid_user_id(client):
+    _register(client, "solo", "solo@test.com")
+    _login(client, "solo@test.com")
+    r = client.post("/api/friends/request", json={"user_id": "not-a-number"})
+    assert r.status_code == 400
+    assert r.get_json()["ok"] is False
+
+
+def test_meeting_hidden_from_friend_when_privacy_on(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    _register(client, "charlie", "c@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        c = User.query.filter_by(email="c@test.com").first()
+        accept_friendship(a.id, b.id)
+        accept_friendship(b.id, c.id)
+        aid, bid, cid = a.id, b.id, c.id
+    _login(client, "b@test.com")
+    client.post(f"/api/friends/{aid}/share-details", json={"share": False})
+    client.post("/meeting/new", data={
+        "to_user": cid,
+        "date": "2026-08-01",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "SECRET SYNC",
+        "description": "",
+    }, follow_redirects=True)
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        client.post(f"/api/requests/{req.id}/confirm")
+    _login(client, "a@test.com")
+    r = client.get(f"/api/users/{bid}/events")
+    titles = [e["title"] for e in r.get_json()]
+    assert "SECRET SYNC" not in titles
+    assert "Занят" in titles
+
+
+def test_register_redirects_to_next(client, app):
+    _register(client, "host", "host@test.com")
+    with app.app_context():
+        token = User.query.filter_by(email="host@test.com").first().invite_token
+    client.post("/logout", follow_redirects=True)
+    r = client.post("/register", data={
+        "username": "guest2",
+        "email": "guest2@test.com",
+        "password": "secret123",
+        "password2": "secret123",
+        "next": f"/friends/join/{token}",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    assert f"/friends/join/{token}" in r.location
+
+
+def test_safe_redirect_blocks_external(app):
+    with app.test_request_context("/login?next=https://evil.example/phish"):
+        from app.helpers import safe_redirect_target
+        target = safe_redirect_target()
+        assert "calendar" in target
+        assert "evil" not in target
+
+
+def test_task_hidden_in_friend_calendar(client, app):
+    from app.friends_service import accept_friendship
+    _register(client, "alice", "a@test.com")
+    _register(client, "bob", "b@test.com")
+    with app.app_context():
+        a = User.query.filter_by(email="a@test.com").first()
+        b = User.query.filter_by(email="b@test.com").first()
+        accept_friendship(a.id, b.id)
+        aid, bid = a.id, b.id
+    _login(client, "b@test.com")
+    client.post("/api/tasks", json={
+        "title": "SECRET TASK",
+        "due_date": "2026-08-10",
+        "due_time": "14:00",
+    })
+    client.post(f"/api/friends/{aid}/share-details", json={"share": False})
+    _login(client, "a@test.com")
+    r = client.get(f"/api/users/{bid}/events")
+    titles = [e["title"] for e in r.get_json()]
+    assert "SECRET TASK" not in titles
+    assert "Занят" in titles
+
+
+def test_meeting_delete_confirmed_forbidden(client, app):
+    _register(client, "host", "host@test.com")
+    _register(client, "guest", "guest@test.com")
+    _make_friends(app, "host@test.com", "guest@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest@test.com").first().id
+    _login(client, "host@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-07-10",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Review",
+        "description": "",
+    }, follow_redirects=True)
+    _login(client, "guest@test.com")
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        client.post(f"/api/requests/{req.id}/confirm")
+        event_id = req.event_id
+    r = client.delete(f"/api/meetings/{event_id}")
+    assert r.status_code == 403
+    _login(client, "host@test.com")
+    r = client.delete(f"/api/meetings/{event_id}")
+    assert r.status_code == 409
+

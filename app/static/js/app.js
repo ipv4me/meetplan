@@ -159,8 +159,8 @@ function initWidgetMeetingForms() {
 
 /* ---------- Мои дела (todo-чеклист) ---------- */
 function initTasks() {
-  const list = document.getElementById("taskList");
-  if (!list) return;
+  const lists = Array.from(document.querySelectorAll("#taskList, #taskListMobile"));
+  if (!lists.length) return;
 
   const addBtn = document.getElementById("taskAdd");
   const titleInput = document.getElementById("taskTitle");
@@ -186,7 +186,8 @@ function initTasks() {
           due_time: timeInput && timeInput.value ? timeInput.value : null,
         }),
         success: function (t) {
-          list.insertAdjacentHTML("afterbegin", renderTask(t));
+          const html = renderTask(t);
+          lists.forEach(function (list) { list.insertAdjacentHTML("afterbegin", html); });
           titleInput.value = "";
           dateInput.value = "";
           if (timeInput) timeInput.value = "";
@@ -205,60 +206,67 @@ function initTasks() {
     });
   }
 
-  // делегирование: чекбокс и удаление (работает и на странице, и в виджете)
-  list.addEventListener("change", function (e) {
-    if (e.target.classList.contains("todo-check")) {
-      const checkbox = e.target;
-      const item = checkbox.closest(".todo-item");
-      const prev = checkbox.checked;
-      checkbox.disabled = true;
-      item.classList.add("is-loading");
-      $.post("/api/tasks/" + item.dataset.id + "/toggle")
-        .done(function (res) {
-          item.classList.toggle("done", res.done);
-        })
-        .fail(function () {
-          checkbox.checked = !prev;
-          showErrorToast("Не удалось обновить дело");
-        })
-        .always(function () {
-          checkbox.disabled = false;
-          item.classList.remove("is-loading");
+  function bindTaskList(list) {
+    list.addEventListener("change", function (e) {
+      if (e.target.classList.contains("todo-check")) {
+        const checkbox = e.target;
+        const item = checkbox.closest(".todo-item");
+        const prev = checkbox.checked;
+        checkbox.disabled = true;
+        item.classList.add("is-loading");
+        $.post("/api/tasks/" + item.dataset.id + "/toggle")
+          .done(function (res) {
+            item.classList.toggle("done", res.done);
+          })
+          .fail(function () {
+            checkbox.checked = !prev;
+            showErrorToast("Не удалось обновить дело");
+          })
+          .always(function () {
+            checkbox.disabled = false;
+            item.classList.remove("is-loading");
+          });
+      }
+    });
+    list.addEventListener("click", function (e) {
+      const editBtn = e.target.closest(".todo-edit");
+      if (editBtn) {
+        openTaskEdit(editBtn.closest(".todo-item"));
+        return;
+      }
+      const del = e.target.closest(".todo-del");
+      if (del) {
+        const item = del.closest(".todo-item");
+        const title = item.querySelector(".todo-title")?.textContent?.trim() || "это дело";
+        confirmAction({
+          title: "Удалить дело?",
+          message: "«" + title + "» будет удалено без возможности восстановления.",
+          confirmLabel: "Удалить",
+          confirmClass: "btn-danger",
+        }).then(function (ok) {
+          if (!ok) return;
+          btnBusy(del, true);
+          $.ajax({
+            url: "/api/tasks/" + item.dataset.id,
+            type: "DELETE",
+            success: function () {
+              const id = item.dataset.id;
+              lists.forEach(function (l) {
+                l.querySelectorAll('.todo-item[data-id="' + id + '"]').forEach(function (el) { el.remove(); });
+              });
+              if (emptyEl && !document.getElementById("taskList")?.querySelector(".todo-item")) {
+                emptyEl.classList.remove("d-none");
+              }
+              showSuccessToast("Дело удалено");
+            },
+            error: function () { showErrorToast("Не удалось удалить дело"); },
+            complete: function () { btnBusy(del, false); },
+          });
         });
-    }
-  });
-  list.addEventListener("click", function (e) {
-    const editBtn = e.target.closest(".todo-edit");
-    if (editBtn) {
-      openTaskEdit(editBtn.closest(".todo-item"));
-      return;
-    }
-    const del = e.target.closest(".todo-del");
-    if (del) {
-      const item = del.closest(".todo-item");
-      const title = item.querySelector(".todo-title")?.textContent?.trim() || "это дело";
-      confirmAction({
-        title: "Удалить дело?",
-        message: "«" + title + "» будет удалено без возможности восстановления.",
-        confirmLabel: "Удалить",
-        confirmClass: "btn-danger",
-      }).then(function (ok) {
-        if (!ok) return;
-        btnBusy(del, true);
-        $.ajax({
-          url: "/api/tasks/" + item.dataset.id,
-          type: "DELETE",
-          success: function () {
-            item.remove();
-            if (emptyEl && !list.querySelector(".todo-item")) emptyEl.classList.remove("d-none");
-            showSuccessToast("Дело удалено");
-          },
-          error: function () { showErrorToast("Не удалось удалить дело"); },
-          complete: function () { btnBusy(del, false); },
-        });
-      });
-    }
-  });
+      }
+    });
+  }
+  lists.forEach(bindTaskList);
 
   const editSave = document.getElementById("editTaskSave");
   if (editSave) {
@@ -901,8 +909,9 @@ function respondRequest(reqId, action, silent, btn) {
     url: "/api/requests/" + reqId + "/" + action,
     type: "POST",
     success: function (res) {
-      const card = document.getElementById("req-" + reqId);
-      if (card) {
+      ["req-" + reqId, "req-mobile-" + reqId].forEach(function (cardId) {
+        const card = document.getElementById(cardId);
+        if (!card) return;
         const badge = card.querySelector(".status-badge");
         if (badge) {
           badge.textContent = res.label;
@@ -910,7 +919,7 @@ function respondRequest(reqId, action, silent, btn) {
         }
         const actions = card.querySelector(".request-actions");
         if (actions) actions.remove();
-      }
+      });
       if (!silent) pollNotifications();
     },
     error: function () { showErrorToast("Не удалось обработать запрос"); },
@@ -930,43 +939,43 @@ function initRequestsTabs() {
   }
 }
 
-/* ---------- Проверка конфликтов (форма встречи) ---------- */
+/* ---------- Проверка конфликтов (форма встречи и виджеты) ---------- */
 function initMeetingConflictCheck() {
-  const form = document.querySelector("form.meeting-form");
-  if (!form) return;
-  const warn = document.getElementById("conflictWarn");
-  const toUser = form.querySelector('[name="to_user"]');
-  const date = form.querySelector('[name="date"]');
-  const start = form.querySelector('[name="start_time"]');
-  const end = form.querySelector('[name="end_time"]');
+  document.querySelectorAll("form.meeting-form, form.widget-form").forEach(function (form) {
+    const warn = form.querySelector("#conflictWarn") || form.querySelector(".widget-conflict-warn");
+    const toUser = form.querySelector('[name="to_user"]');
+    const date = form.querySelector('[name="date"]');
+    const start = form.querySelector('[name="start_time"]');
+    const end = form.querySelector('[name="end_time"]');
     const excludeId = form.dataset.excludeEventId;
     function check() {
-    if (!toUser.value || !date.value || !start.value || !end.value) return;
-    const startIso = date.value + "T" + start.value + ":00";
-    const endIso = date.value + "T" + end.value + ":00";
-    const payload = { to_user: toUser.value, start: startIso, end: endIso };
-    if (excludeId) payload.exclude_event_id = excludeId;
-    $.ajax({
-      url: "/api/meetings/check-conflicts",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify(payload),
-      success: function (res) {
-        if (!warn) return;
-        if (res.conflicts && res.conflicts.length) {
-          const names = [...new Set(res.conflicts.map((c) => c.username))].join(", ");
-          warn.textContent = "Конфликт расписания: " + names;
-          warn.classList.remove("d-none");
-        } else {
-          warn.classList.add("d-none");
-        }
-      },
+      if (!toUser || !toUser.value || !date || !date.value || !start || !start.value || !end || !end.value) return;
+      const startIso = date.value + "T" + start.value + ":00";
+      const endIso = date.value + "T" + end.value + ":00";
+      const payload = { to_user: toUser.value, start: startIso, end: endIso };
+      if (excludeId) payload.exclude_event_id = excludeId;
+      $.ajax({
+        url: "/api/meetings/check-conflicts",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(payload),
+        success: function (res) {
+          if (!warn) return;
+          if (res.conflicts && res.conflicts.length) {
+            const names = [...new Set(res.conflicts.map((c) => c.username))].join(", ");
+            warn.textContent = "Конфликт расписания: " + names;
+            warn.classList.remove("d-none");
+          } else {
+            warn.classList.add("d-none");
+          }
+        },
+      });
+    }
+    [toUser, date, start, end].forEach(function (el) {
+      if (el) el.addEventListener("change", check);
     });
-  }
-  [toUser, date, start, end].forEach(function (el) {
-    if (el) el.addEventListener("change", check);
+    if (form.classList.contains("meeting-form")) check();
   });
-  check();
 }
 
 /* initMobileMeetingWidget merged into initWidgetMeetingForms */

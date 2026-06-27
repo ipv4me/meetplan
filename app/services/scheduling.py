@@ -60,6 +60,7 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
     for p in parts.all():
         blocks.append({
             "user_id": user_id,
+            "event_id": p.event.id,
             "start": p.event.start_datetime,
             "end": p.event.end_datetime,
             "title": p.event.title,
@@ -90,6 +91,8 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
 
 def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
     """Конфликты расписания для списка пользователей."""
+    from app.utils import _viewer_in_event
+
     conflicts = []
     for uid in user_ids:
         user = db.session.get(User, uid)
@@ -99,10 +102,19 @@ def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
             if _overlaps(block["start"], block["end"], start, end):
                 title = block["title"]
                 kind = block["kind"]
-                if viewer_id is not None and uid != viewer_id and kind in ("personal", "task"):
-                    if not friend_shares_details_with(uid, viewer_id):
-                        title = "Занят"
-                        kind = "busy"
+                if viewer_id is not None and uid != viewer_id:
+                    if kind in ("personal", "task"):
+                        if not friend_shares_details_with(uid, viewer_id):
+                            title = "Занят"
+                            kind = "busy"
+                    elif kind == "meeting":
+                        event_id = block.get("event_id")
+                        if (
+                            not friend_shares_details_with(uid, viewer_id)
+                            and not (event_id and _viewer_in_event(event_id, viewer_id))
+                        ):
+                            title = "Занят"
+                            kind = "busy"
                 conflicts.append({
                     "user_id": uid,
                     "username": user.username,

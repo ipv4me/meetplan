@@ -4,7 +4,7 @@ import os
 from functools import wraps
 from time import time
 
-from flask import current_app, request, abort
+from flask import current_app, request, abort, url_for
 from flask_login import current_user
 
 from sqlalchemy import false
@@ -26,6 +26,19 @@ def pending_count():
     return MeetingRequest.query.filter_by(
         to_user_id=current_user.id, status_id=STATUS_PENDING
     ).count()
+
+
+def safe_redirect_target(default_endpoint="main.calendar"):
+    """Безопасный URL для редиректа после входа (только относительные пути)."""
+    from urllib.parse import urlparse
+
+    nxt = request.args.get("next") or request.form.get("next")
+    if not nxt:
+        return url_for(default_endpoint)
+    parsed = urlparse(nxt)
+    if parsed.scheme or parsed.netloc or not nxt.startswith("/"):
+        return url_for(default_endpoint)
+    return nxt
 
 
 def guess_image_mimetype(filename, fallback="image/jpeg"):

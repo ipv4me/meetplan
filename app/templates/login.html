@@ -4,9 +4,12 @@
 <h4 class="mb-3">Вход</h4>
 <form method="POST" novalidate>
   {{ form.hidden_tag() }}
+  {% if request.args.get('next') %}
+  <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+  {% endif %}
   <div class="mb-3">
     {{ form.email.label(class="form-label") }}
-    {{ form.email(class="form-control", placeholder="you@example.com") }}
+    {{ form.email(class="form-control", placeholder="email@example.com") }}
     {% for e in form.email.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
   </div>
   <div class="mb-3">
@@ -20,5 +23,5 @@
   </div>
   {{ form.submit(class="btn btn-primary w-100") }}
 </form>
-<p class="text-center mt-3 mb-0 small">Нет аккаунта? <a href="{{ url_for('main.register') }}">Зарегистрироваться</a></p>
+<p class="text-center mt-3 mb-0 small">Нет аккаунта? <a href="{{ url_for('main.register', next=request.args.get('next')) }}">Зарегистрироваться</a></p>
 {% endblock %}

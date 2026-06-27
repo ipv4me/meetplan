@@ -100,6 +100,9 @@ def edit_meeting(event_id):
         form.start_time.data = start_local.time()
         form.end_time.data = end_local.time()
     if form.validate_on_submit():
+        if form.to_user.data == current_user.id:
+            flash("Нельзя назначить встречу самому себе.", "danger")
+            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
         if form.to_user.data not in valid_colleague_ids():
             flash("Выберите друга из списка.", "danger")
             return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
@@ -182,6 +185,10 @@ def api_delete_meeting(event_id):
     req = ev.request
     if current_user.id not in (req.from_user_id, req.to_user_id):
         abort(403)
+    if req.from_user_id != current_user.id:
+        return jsonify({"ok": False, "error": "Удалить встречу может только организатор"}), 403
+    if req.status_id == STATUS_CONFIRMED:
+        return jsonify({"ok": False, "error": "Сначала отмените подтверждённую встречу"}), 409
     db.session.delete(ev)
     db.session.commit()
     return jsonify({"ok": True})

@@ -40,6 +40,7 @@
     ('main.requests_page', 'bi-inbox', 'Запросы', true),
     ('main.friends', 'bi-people', 'Друзья', false),
     ('main.free_time', 'bi-clock-history', 'Свободное время', false),
+    ('main.profile', 'bi-person', 'Профиль', false),
     ('main.settings', 'bi-gear', 'Настройки', false)
   ] %}
   <aside class="sidebar d-none d-md-flex flex-column">
@@ -54,7 +55,8 @@
     </div>
     <nav class="sidebar-nav">
       {% for endpoint, icon, label, badge in side_nav %}
-      <a href="{{ url_for(endpoint) }}" class="nav-link {% if request.endpoint == endpoint %}active{% endif %}">
+      {% set nav_active = request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') or (endpoint == 'main.new_meeting' and request.endpoint in ['main.edit_meeting', 'main.edit_event']) %}
+      <a href="{{ url_for(endpoint) }}" class="nav-link {% if nav_active %}active{% endif %}">
         <i class="bi {{ icon }}"></i> <span>{{ label }}</span>
         {% if badge and pending_badge %}<span class="badge bg-danger ms-auto">{{ pending_badge }}</span>{% endif %}
       </a>
@@ -118,11 +120,11 @@
       <small>{{ label }}</small>
     </a>
     {% endfor %}
-    <a href="#" class="{% if request.endpoint in more_endpoints %}active{% endif %}"
+    <button type="button" class="bottom-nav-more {% if request.endpoint in more_endpoints %}active{% endif %}"
        data-bs-toggle="offcanvas" data-bs-target="#mobileMenu" aria-label="Ещё">
       <span><i class="bi bi-grid"></i></span>
       <small>Ещё</small>
-    </a>
+    </button>
   </nav>
 
   <a href="{{ url_for('main.new_meeting') }}" class="fab d-md-none" aria-label="Создать встречу"><i class="bi bi-plus-lg"></i></a>

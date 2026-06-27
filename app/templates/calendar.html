@@ -4,6 +4,16 @@
 {% block topbar_title %}Календарь{% endblock %}
 {% block content %}
 
+{% if not users %}
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-3 onboarding-banner" role="status">
+  <div class="flex-grow-1">
+    <strong>Добро пожаловать!</strong>
+    <span class="ms-1">Добавьте друзей — тогда можно назначать встречи и смотреть их календари.</span>
+  </div>
+  <a href="{{ url_for('main.friends') }}" class="btn btn-primary btn-sm flex-shrink-0">Перейти к друзьям</a>
+</div>
+{% endif %}
+
 <div class="card content-card mb-3">
   <div class="card-body">
     <div class="calendar-wrap">
@@ -29,12 +39,46 @@
   </div>
 </div>
 
+{% if latest_request %}
+<div class="card content-card mb-3 d-md-none">
+  <div class="card-body">
+    <h6 class="widget-title">Запрос на встречу</h6>
+    <div id="req-mobile-{{ latest_request.id }}">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        {{ avatar(latest_request.from_user) }}
+        <div>
+          <div class="fw-semibold">{{ latest_request.from_user.username }}</div>
+          <div class="text-muted small">хочет встретиться с вами</div>
+        </div>
+      </div>
+      <div class="small mb-1"><i class="bi bi-calendar3 me-1"></i>{{ latest_request.event.start_datetime|user_dt('%d.%m.%Y') }}</div>
+      <div class="small mb-1"><i class="bi bi-clock me-1"></i>{{ latest_request.event.start_datetime|user_dt('%H:%M') }} – {{ latest_request.event.end_datetime|user_dt('%H:%M') }}</div>
+      <div class="small mb-1"><i class="bi bi-chat-left-text me-1"></i>{{ latest_request.event.title }}</div>
+      <span class="badge status-badge st-pending mb-3">Ожидает подтверждения</span>
+      <div class="request-actions d-flex gap-2">
+        <button class="btn btn-success btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'confirm', false, this)" aria-label="Подтвердить встречу">Подтвердить</button>
+        <button class="btn btn-outline-danger btn-sm flex-fill" onclick="respondRequest({{ latest_request.id }}, 'reject', false, this)" aria-label="Отклонить встречу">Отклонить</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif pending_count %}
+<div class="card content-card mb-3 d-md-none">
+  <div class="card-body py-3">
+    <a href="{{ url_for('main.requests_page') }}" class="btn btn-outline-primary btn-sm w-100">
+      <i class="bi bi-inbox"></i> Входящие запросы ({{ pending_count }})
+    </a>
+  </div>
+</div>
+{% endif %}
+
 <div class="card content-card mb-3 d-md-none mobile-meeting-card">
   <div class="card-body">
     <h6 class="widget-title">Быстрая встреча</h6>
     {% if users %}
     <form method="POST" action="{{ url_for('main.new_meeting') }}" id="mobileMeetingForm" class="widget-form">
       {{ meeting_form.csrf_token }}
+      <div class="alert alert-warning small py-2 d-none mb-2 widget-conflict-warn"></div>
       <div class="mb-2">
         <label class="form-label small">С кем</label>
         <select name="to_user" class="form-select form-select-sm" required>
@@ -60,11 +104,38 @@
         <label class="form-label small">Тема</label>
         <input type="text" name="title" class="form-control form-control-sm" placeholder="Тема встречи" required>
       </div>
+      <div class="mb-2">
+        <label class="form-label small">Описание <span class="text-muted">(необяз.)</span></label>
+        <textarea name="description" class="form-control form-control-sm" rows="2"></textarea>
+      </div>
       <button type="submit" class="btn btn-primary btn-sm w-100">Отправить запрос</button>
     </form>
     {% else %}
     <p class="text-muted small mb-0">Добавьте друзей, чтобы назначать встречи. <a href="{{ url_for('main.friends') }}">Перейти к друзьям</a></p>
     {% endif %}
+  </div>
+</div>
+
+<div class="card content-card mb-3 d-md-none">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="widget-title mb-0">Мои дела</h6>
+      <a href="{{ url_for('main.tasks') }}" class="btn btn-primary btn-sm" aria-label="Добавить дело"><i class="bi bi-plus-lg"></i></a>
+    </div>
+    <div id="taskListMobile">
+      {% for t in tasks %}
+      <div class="todo-item {% if t.done %}done{% endif %}" data-id="{{ t.id }}">
+        <input class="form-check-input todo-check" type="checkbox" {% if t.done %}checked{% endif %} aria-label="Отметить «{{ t.title }}»">
+        <span class="task-dot" style="background:{{ t.color }}"></span>
+        <div class="flex-grow-1">
+          <div class="todo-title">{{ t.title }}</div>
+          {% if t.due_display %}<div class="text-muted small">{{ t.due_display }}</div>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      {{ empty_state('bi-check2-square', 'Дел пока нет', 'Добавьте задачу — она появится в календаре.', url_for('main.tasks'), 'Добавить дело', compact=True) }}
+      {% endfor %}
+    </div>
   </div>
 </div>
 
@@ -77,6 +148,7 @@
         {% if users %}
         <form method="POST" action="{{ url_for('main.new_meeting') }}" class="widget-form">
           {{ meeting_form.csrf_token }}
+          <div class="alert alert-warning small py-2 d-none mb-2 widget-conflict-warn"></div>
           <div class="mb-2">
             <label class="form-label small">С кем</label>
             <select name="to_user" class="form-select form-select-sm" required>
@@ -171,12 +243,12 @@
   </div>
 </div>
 
-<div class="modal fade" id="eventModal" tabindex="-1">
+<div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="evTitle">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="evTitle">Событие</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
       </div>
       <div class="modal-body">
         <p class="mb-2"><span class="badge" id="evStatus"></span></p>
@@ -193,12 +265,12 @@
   </div>
 </div>
 
-<div class="modal fade" id="newEventModal" tabindex="-1">
+<div class="modal fade" id="newEventModal" tabindex="-1" aria-labelledby="newEventModalTitle">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Новое событие</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="newEventModalTitle">Новое событие</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">

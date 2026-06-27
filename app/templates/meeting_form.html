@@ -43,7 +43,10 @@
         {{ form.description.label(class="form-label") }} <span class="text-muted small">(необязательно)</span>
         {{ form.description(class="form-control", rows="3", placeholder="Обсудим детали проекта и задачи.") }}
       </div>
-      {{ form.submit(class="btn btn-primary w-100") }}
+      <div class="d-flex gap-2">
+        {{ form.submit(class="btn btn-primary flex-fill") }}
+        <a href="{{ url_for('main.calendar') }}" class="btn btn-outline-secondary">Отмена</a>
+      </div>
     </form>
     {% else %}
     {{ empty_state('bi-people', 'Сначала добавьте друзей', 'Чтобы назначить встречу, найдите человека на странице «Друзья» или отправьте ссылку-приглашение.', url_for('main.friends'), 'Перейти к друзьям') }}

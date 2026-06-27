@@ -33,7 +33,10 @@
         {{ form.description.label(class="form-label") }}
         {{ form.description(class="form-control", rows="3") }}
       </div>
-      {{ form.submit(class="btn btn-primary w-100") }}
+      <div class="d-flex gap-2">
+        {{ form.submit(class="btn btn-primary flex-fill") }}
+        <a href="{{ url_for('main.calendar') }}" class="btn btn-outline-secondary">Отмена</a>
+      </div>
     </form>
   </div>
 </div>

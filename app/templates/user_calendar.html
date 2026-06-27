@@ -5,6 +5,9 @@
 {% block content %}
 <div class="card content-card mb-3">
   <div class="card-body">
+    <a href="{{ url_for('main.friends') }}" class="btn btn-outline-secondary btn-sm mb-3">
+      <i class="bi bi-arrow-left" aria-hidden="true"></i> К друзьям
+    </a>
     <div class="d-flex align-items-center gap-3 mb-3 user-calendar-head">
       {{ avatar(viewed_user) }}
       <div class="min-w-0">

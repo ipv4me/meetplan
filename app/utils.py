@@ -77,15 +77,26 @@ def events_for_user(user_id, viewer_id=None):
         status_id = req.status_id if req else p.status_id
         if status_id in (STATUS_REJECTED, STATUS_CANCELLED) and not is_self:
             continue
-        result.append(_to_fc(p.event, status_id, is_owner=(p.event.created_by == user_id)))
+        if is_self or can_see_details or _viewer_in_event(p.event_id, viewer_id):
+            result.append(_to_fc(p.event, status_id, is_owner=(p.event.created_by == user_id)))
+        else:
+            result.append(_to_fc_busy(p.event))
 
     if owner:
         if is_self:
             result.extend(_tasks_to_fc(owner))
         elif can_see_details:
             result.extend(_tasks_to_fc(owner, for_viewer=True))
+        else:
+            result.extend(_tasks_to_fc_busy(owner))
 
     return result
+
+
+def _viewer_in_event(event_id, viewer_id):
+    if not viewer_id:
+        return False
+    return EventParticipant.query.filter_by(event_id=event_id, user_id=viewer_id).first() is not None
 
 
 def _tasks_to_fc(user, for_viewer=False):
@@ -116,6 +127,38 @@ def _tasks_to_fc(user, for_viewer=False):
                 "statusLabel": "Задача",
                 "isOwner": not for_viewer,
                 "canDelete": not for_viewer,
+                "accent": border,
+            },
+        })
+    return items
+
+
+def _tasks_to_fc_busy(user):
+    """Задачи с датой для чужого календаря — только занятость."""
+    items = []
+    tasks = (
+        Task.query
+        .filter_by(user_id=user.id, done=False)
+        .filter(Task.due_date.isnot(None))
+        .all()
+    )
+    bg, border, text = STYLE_PERSONAL
+    for task in tasks:
+        local_start, local_end = task_block_local_iso(task)
+        items.append({
+            "id": f"task-{task.id}",
+            "title": "Занят",
+            "start": local_start,
+            "end": local_end,
+            "backgroundColor": bg,
+            "borderColor": border,
+            "textColor": text,
+            "extendedProps": {
+                "description": "",
+                "type": "busy",
+                "statusId": STATUS_CONFIRMED,
+                "statusLabel": "Занят",
+                "isOwner": False,
                 "accent": border,
             },
         })

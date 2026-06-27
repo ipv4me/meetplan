@@ -68,6 +68,12 @@ def admin_users():
         "pending_friends": Friendship.query.filter_by(status="pending").count(),
         "pending_meetings": MeetingRequest.query.filter_by(status_id=STATUS_PENDING).count(),
     }
+    pending_friendships = (
+        Friendship.query.filter_by(status="pending")
+        .order_by(Friendship.created_at.desc())
+        .limit(8)
+        .all()
+    )
 
     return render_template(
         "admin_users.html",
@@ -76,6 +82,7 @@ def admin_users():
         friend_counts=friend_counts,
         overview=overview,
         meeting_counts=meeting_counts,
+        pending_friendships=pending_friendships,
         recent_users=User.query.order_by(User.created_at.desc()).limit(6).all(),
         month_label=format_month_year(month_start, user_timezone(current_user)),
         pending_count=pending_count(),

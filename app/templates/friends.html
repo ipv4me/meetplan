@@ -79,12 +79,12 @@
 <div class="card content-card mb-3">
   <div class="card-body">
     <h6 class="fw-semibold mb-2">Приватность календаря</h6>
-    <p class="text-muted small mb-3">Друзья по умолчанию видят названия ваших личных дел и задач. Можно скрыть от всех сразу или от отдельных людей ниже.</p>
+    <p class="text-muted small mb-3">Друзья по умолчанию видят названия ваших личных дел, задач и встреч с вами. Можно скрыть от всех сразу или от отдельных людей ниже.</p>
     <div class="form-check form-switch mb-0">
       <input class="form-check-input" type="checkbox" role="switch" id="globalHideCalendar"
              {% if hide_calendar_globally %}checked{% endif %}>
       <label class="form-check-label" for="globalHideCalendar">
-        Скрывать названия дел от всех друзей
+        Скрывать детали календаря от всех друзей
       </label>
     </div>
   </div>
@@ -106,7 +106,7 @@
                  {% if hide_details.get(u.id) %}checked{% endif %}
                  {% if hide_calendar_globally %}disabled{% endif %}>
           <label class="form-check-label small text-muted" for="hide-{{ u.id }}">
-            Скрывать названия моих дел
+            Скрыть детали календаря
           </label>
         </div>
       </div>
@@ -134,6 +134,8 @@
 (function () {
   let selectedUserId = null;
   let suggestTimer = null;
+  let suggestUsers = [];
+  let suggestActive = -1;
 
   document.getElementById("copyInviteBtn").addEventListener("click", function () {
     const input = document.getElementById("inviteUrl");
@@ -154,6 +156,18 @@
     list.classList.add("d-none");
     list.innerHTML = "";
     input.setAttribute("aria-expanded", "false");
+    suggestUsers = [];
+    suggestActive = -1;
+  }
+
+  function highlightSuggest(index) {
+    const items = list.querySelectorAll(".friend-suggest-item");
+    items.forEach(function (btn, i) {
+      btn.classList.toggle("active", i === index);
+      btn.setAttribute("aria-selected", i === index ? "true" : "false");
+    });
+    suggestActive = index;
+    if (items[index]) items[index].scrollIntoView({ block: "nearest" });
   }
 
   function clearSelection() {
@@ -179,6 +193,8 @@
   }
 
   function renderSuggest(users) {
+    suggestUsers = users;
+    suggestActive = -1;
     if (!users.length) {
       list.innerHTML = '<div class="friend-suggest-empty text-muted small">Никого не найдено</div>';
       list.classList.remove("d-none");
@@ -199,14 +215,33 @@
     }).join("");
     list.classList.remove("d-none");
     input.setAttribute("aria-expanded", "true");
-    list.querySelectorAll(".friend-suggest-item").forEach(function (btn) {
+    list.querySelectorAll(".friend-suggest-item").forEach(function (btn, idx) {
       btn.addEventListener("click", function () {
         const id = parseInt(btn.dataset.id, 10);
-        const user = users.find(function (u) { return u.id === id; });
+        const user = suggestUsers.find(function (u) { return u.id === id; });
         if (user) selectUser(user);
       });
+      btn.addEventListener("mouseenter", function () { highlightSuggest(idx); });
     });
   }
+
+  input.addEventListener("keydown", function (e) {
+    const items = list.querySelectorAll(".friend-suggest-item");
+    if (list.classList.contains("d-none") || !items.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      highlightSuggest(suggestActive < items.length - 1 ? suggestActive + 1 : 0);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      highlightSuggest(suggestActive > 0 ? suggestActive - 1 : items.length - 1);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const idx = suggestActive >= 0 ? suggestActive : 0;
+      if (suggestUsers[idx]) selectUser(suggestUsers[idx]);
+    } else if (e.key === "Escape") {
+      hideSuggest();
+    }
+  });
 
   function fetchSuggest(q) {
     $.get("/api/friends/suggest", { q: q }, function (res) {
