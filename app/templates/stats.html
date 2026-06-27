@@ -3,11 +3,11 @@
 {% block topbar_title %}Статистика{% endblock %}
 {% block content %}
 <div class="row g-3">
-  <div class="col-md-6">
-    <div class="card content-card h-100">
+  <div class="col-12 col-lg-6">
+    <div class="card content-card stat-panel h-100">
       <div class="card-body">
         <h5 class="mb-3">Мои встречи — {{ month_label }}</h5>
-        <div class="stat-grid">
+        <div class="stat-grid stat-grid-metrics">
           <div class="stat-item"><span class="stat-num">{{ my_counts.total }}</span><span class="stat-label">Всего</span></div>
           <div class="stat-item"><span class="stat-num text-primary">{{ my_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
           <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ my_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
@@ -18,12 +18,12 @@
     </div>
   </div>
   {% if org_counts %}
-  <div class="col-md-6">
-    <div class="card content-card h-100">
+  <div class="col-12 col-lg-6">
+    <div class="card content-card stat-panel h-100">
       <div class="card-body">
         <h5 class="mb-3">Организация — {{ month_label }}</h5>
-        <p class="text-muted small">Доступно администратору организации.</p>
-        <div class="stat-grid">
+        <p class="text-muted small mb-3">Доступно администратору организации.</p>
+        <div class="stat-grid stat-grid-metrics">
           <div class="stat-item"><span class="stat-num">{{ org_counts.total }}</span><span class="stat-label">Запросов</span></div>
           <div class="stat-item"><span class="stat-num text-primary">{{ org_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
           <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ org_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
