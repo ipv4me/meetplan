@@ -203,13 +203,89 @@ img.avatar { object-fit: cover; }
 .fc .ev-time { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc .ev-title { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* вид «Список» (повестка) — читаемо на телефоне */
+/* вид «Список» (повестка) */
+.fc .fc-list-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 16px;
+  font-size: .9rem;
+}
 .fc .fc-list-event-title, .fc .fc-list-event-time,
 .fc .fc-list-day-text, .fc .fc-list-day-side-text { color: var(--text); }
-.fc .fc-list-event-title a { color: var(--text); }
+.fc .fc-list-event-title a { color: var(--text); text-decoration: none; }
 .fc .fc-list-event-dot { border-width: 5px; }
 [data-bs-theme="dark"] .fc-list-day-cushion { background: #1e293b !important; }
 [data-bs-theme="dark"] .fc-theme-standard .fc-list { border-color: var(--border); }
+
+@media (max-width: 767.98px) {
+  .fc .fc-list-view .fc-scroller-harness,
+  .fc .fc-list-view .fc-scroller { overflow: visible !important; }
+  .fc .fc-list-view .fc-list-table { border: none; }
+  .fc .fc-list-day > th { border: none; padding: 0; background: transparent !important; }
+  .fc .fc-list-day-cushion {
+    background: transparent !important;
+    padding: 18px 0 8px;
+  }
+  .fc .fc-list-day-text {
+    font-size: .92rem;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+  .fc .fc-list-day-side-text { display: none; }
+  .fc .fc-list-event {
+    display: block;
+    border: none;
+    background: transparent !important;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .fc .fc-list-event td {
+    display: block;
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+  .fc .fc-list-event-time,
+  .fc .fc-list-event-graphic { display: none !important; }
+  .fc .fc-list-event-title { width: 100%; }
+  .fc .list-ev-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ev-accent, #3b82f6);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+  }
+  .fc .list-ev-time {
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fc .list-ev-time .bi { font-size: .85rem; opacity: .75; }
+  .fc .list-ev-title {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .fc .list-ev-badge {
+    align-self: flex-start;
+    font-size: .68rem;
+    margin-top: 2px;
+  }
+  .fc .fc-list-event:hover td,
+  .fc .fc-list-event:focus td,
+  .fc .fc-list-event.fc-event-selected td { background: transparent !important; }
+  [data-bs-theme="dark"] .fc .list-ev-card { box-shadow: 0 1px 4px rgba(0, 0, 0, .28); }
+}
 
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .85rem; color: var(--muted); }
 .legend .dot-legend {

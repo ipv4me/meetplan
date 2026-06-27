@@ -3,10 +3,9 @@ from datetime import datetime
 
 from flask import (
     Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort,
-    current_app,
+    current_app, Response,
 )
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.utils import secure_filename
 
 from app import db
 from app.models import User, Event, MeetingRequest, EventParticipant, Status, Task
@@ -19,6 +18,30 @@ from app.utils import (
 )
 
 bp = Blueprint("main", __name__)
+
+MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 МБ
+
+
+def _guess_image_mimetype(filename, fallback="image/jpeg"):
+    ext = filename.rsplit(".", 1)[-1].lower() if filename else ""
+    return {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "webp": "image/webp",
+    }.get(ext, fallback)
+
+
+def _remove_legacy_avatar_file(relative_path):
+    if not relative_path:
+        return
+    path = os.path.join(current_app.static_folder, relative_path)
+    if os.path.isfile(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 # ----------------------------- Аутентификация ----------------------------- #
@@ -468,12 +491,14 @@ def upload_avatar():
     form = AvatarForm()
     if form.validate_on_submit():
         file = form.avatar.data
-        ext = file.filename.rsplit(".", 1)[-1].lower()
-        os.makedirs(current_app.config["AVATAR_DIR"], exist_ok=True)
-        filename = secure_filename(f"user_{current_user.id}.{ext}")
-        file.save(os.path.join(current_app.config["AVATAR_DIR"], filename))
-        # путь относительно static/ (с прямыми слэшами для url_for)
-        current_user.avatar = f"uploads/avatars/{filename}"
+        data = file.read()
+        if len(data) > MAX_AVATAR_BYTES:
+            flash("Файл слишком большой (максимум 2 МБ).", "danger")
+            return redirect(url_for("main.settings"))
+        _remove_legacy_avatar_file(current_user.avatar)
+        current_user.avatar_data = data
+        current_user.avatar_mimetype = file.mimetype or _guess_image_mimetype(file.filename)
+        current_user.avatar = None
         db.session.commit()
         flash("Аватар обновлён.", "success")
     else:
@@ -483,16 +508,27 @@ def upload_avatar():
     return redirect(url_for("main.settings"))
 
 
+@bp.route("/avatars/<int:user_id>")
+@login_required
+def user_avatar(user_id):
+    """Отдаёт аватар из БД — переживает деплой без отдельного хранилища файлов."""
+    user = db.session.get(User, user_id)
+    if user is None or not user.avatar_data:
+        abort(404)
+    return Response(
+        user.avatar_data,
+        mimetype=user.avatar_mimetype or "image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
 @bp.route("/avatar/delete", methods=["POST"])
 @login_required
 def delete_avatar():
-    if current_user.avatar:
-        path = os.path.join(current_app.static_folder, current_user.avatar)
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+    if current_user.avatar_data or current_user.avatar:
+        _remove_legacy_avatar_file(current_user.avatar)
+        current_user.avatar_data = None
+        current_user.avatar_mimetype = None
         current_user.avatar = None
         db.session.commit()
         flash("Аватар удалён.", "info")

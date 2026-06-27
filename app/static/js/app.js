@@ -176,8 +176,9 @@ function isMobile() {
   return window.matchMedia("(max-width: 767.98px)").matches;
 }
 
-function calHeight() {
-  // высота, в которую строки растягиваются ровно — без прокрутки и пустот
+function calHeight(viewType) {
+  const vt = viewType || (calendar && calendar.view ? calendar.view.type : null);
+  if (isMobile() && vt && vt.startsWith("list")) return "auto";
   return isMobile() ? Math.max(window.innerHeight - 150, 520) : 660;
 }
 
@@ -190,12 +191,34 @@ function rightToolbar() {
 
 /* компактный рендер события: время и заголовок — по строке с многоточием */
 function renderEventContent(arg) {
-  if (!arg.view.type.startsWith("timeGrid")) return;  // месяц/список — по умолчанию
+  if (arg.view.type.startsWith("list")) return renderListEventContent(arg);
+  if (!arg.view.type.startsWith("timeGrid")) return;
   return {
     html:
       '<div class="ev-content">' +
       (arg.timeText ? '<div class="ev-time">' + arg.timeText + "</div>" : "") +
       '<div class="ev-title">' + escapeHtml(arg.event.title) + "</div>" +
+      "</div>",
+  };
+}
+
+/* карточка события для вида «Список» (мобильный) */
+function renderListEventContent(arg) {
+  const props = arg.event.extendedProps;
+  const statusLabel = props.statusLabel || "";
+  const badge = statusLabel
+    ? '<span class="list-ev-badge badge ' + statusClass(props.type, props.statusId) + '">' +
+      escapeHtml(statusLabel) + "</span>"
+    : "";
+  const time = arg.timeText
+    ? '<div class="list-ev-time"><i class="bi bi-clock"></i> ' + arg.timeText + "</div>"
+    : "";
+  return {
+    html:
+      '<div class="list-ev-card">' +
+      time +
+      '<div class="list-ev-title">' + escapeHtml(arg.event.title) + "</div>" +
+      badge +
       "</div>",
   };
 }
@@ -215,6 +238,13 @@ function initCalendar(el) {
       addEvent: { text: "+ Событие", click: openNewEventModal },
     },
     buttonText: { today: "Сегодня", month: "Месяц", week: "Неделя", day: "День", listWeek: "Список" },
+    views: {
+      listWeek: {
+        listDayFormat: { weekday: "long", day: "numeric", month: "long" },
+        listDaySideFormat: false,
+        noEventsContent: { html: '<div class="fc-list-empty">На этой неделе событий нет</div>' },
+      },
+    },
     slotMinTime: "07:00:00",
     slotMaxTime: "23:00:00",
     slotDuration: "01:00:00",
@@ -223,7 +253,7 @@ function initCalendar(el) {
     nowIndicator: true,
     allDaySlot: false,
     dayMaxEvents: true,
-    height: calHeight(),
+    height: calHeight(isMobile() ? "timeGridDay" : "timeGridWeek"),
     // шапка дня: день недели сверху, число в кружке (кружок на «сегодня»).
     // Только для сеток времени; в месяце/списке — стандартная шапка.
     dayHeaderContent: function (arg) {
@@ -239,6 +269,15 @@ function initCalendar(el) {
     events: eventsUrl,
     eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
     eventContent: renderEventContent,
+    eventDidMount: function (info) {
+      if (!info.view.type.startsWith("list")) return;
+      info.el.classList.add("list-ev-row");
+      const accent = info.event.extendedProps.accent || info.event.borderColor || "#3b82f6";
+      info.el.style.setProperty("--ev-accent", accent);
+    },
+    datesSet: function (info) {
+      calendar.setOption("height", calHeight(info.view.type));
+    },
     eventClick: function (info) {
       showEventDetails(info.event);
     },
@@ -248,7 +287,7 @@ function initCalendar(el) {
   // переключаем вид/высоту при смене размера окна
   let lastMobile = isMobile();
   window.addEventListener("resize", function () {
-    calendar.setOption("height", calHeight());
+    calendar.setOption("height", calHeight(calendar.view.type));
     const now = isMobile();
     if (now !== lastMobile) {
       lastMobile = now;

@@ -13,7 +13,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
-    avatar = db.Column(db.String(256))  # путь к файлу относительно static/ (или None)
+    avatar = db.Column(db.String(256))  # устар.: путь в static/ (миграция в avatar_data)
+    avatar_data = db.Column(db.LargeBinary)
+    avatar_mimetype = db.Column(db.String(64))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Все события, созданные пользователем
@@ -27,6 +29,10 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    @property
+    def has_avatar(self):
+        return bool(self.avatar_data)
 
     def __repr__(self):
         return f"<User {self.username}>"

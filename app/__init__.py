@@ -40,11 +40,64 @@ def ensure_schema():
         if "avatar" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR(256)"))
             db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "avatar_data" not in cols:
+            blob_type = "BYTEA" if db.engine.dialect.name == "postgresql" else "BLOB"
+            db.session.execute(text(f"ALTER TABLE users ADD COLUMN avatar_data {blob_type}"))
+            db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "avatar_mimetype" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_mimetype VARCHAR(64)"))
+            db.session.commit()
+        migrate_legacy_avatars()
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
         if "due_time" not in cols:
             db.session.execute(text("ALTER TABLE tasks ADD COLUMN due_time TIME"))
             db.session.commit()
+
+
+def migrate_legacy_avatars():
+    """Переносит файлы аватаров с диска в БД (если ещё не перенесены)."""
+    import os
+
+    from flask import current_app
+
+    from app.models import User
+
+    users = (
+        User.query
+        .filter(User.avatar.isnot(None), User.avatar_data.is_(None))
+        .all()
+    )
+    if not users:
+        return
+
+    changed = False
+    for user in users:
+        path = os.path.join(current_app.static_folder, user.avatar)
+        if not os.path.isfile(path):
+            user.avatar = None
+            changed = True
+            continue
+        with open(path, "rb") as fh:
+            user.avatar_data = fh.read()
+        user.avatar_mimetype = _legacy_avatar_mimetype(user.avatar)
+        user.avatar = None
+        changed = True
+    if changed:
+        db.session.commit()
+
+
+def _legacy_avatar_mimetype(relative_path):
+    ext = relative_path.rsplit(".", 1)[-1].lower() if relative_path else ""
+    return {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "webp": "image/webp",
+    }.get(ext, "image/jpeg")
 
 
 def seed_statuses():

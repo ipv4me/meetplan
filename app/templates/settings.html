@@ -16,16 +16,16 @@
     <label class="form-label fw-semibold mb-1">
       <i class="bi bi-image me-1"></i>Аватар профиля
     </label>
-    <p class="text-muted small mb-2">Загрузите фото — оно появится в меню, профиле и карточках. PNG, JPG, GIF или WEBP, до 3 МБ.</p>
+    <p class="text-muted small mb-2">Загрузите фото — оно появится в меню, профиле и карточках. PNG, JPG, GIF или WEBP, до 2 МБ.</p>
     <form method="POST" action="{{ url_for('main.upload_avatar') }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
       {{ avatar_form.csrf_token }}
       {{ avatar_form.avatar(class="form-control form-control-sm", style="max-width:260px", accept="image/*") }}
       {{ avatar_form.submit(class="btn btn-primary btn-sm") }}
-      {% if current_user.avatar %}
+      {% if current_user.has_avatar %}
       <button type="submit" form="delAvatar" class="btn btn-outline-danger btn-sm">Удалить фото</button>
       {% endif %}
     </form>
-    {% if current_user.avatar %}
+    {% if current_user.has_avatar %}
     <form method="POST" id="delAvatar" action="{{ url_for('main.delete_avatar') }}">{{ avatar_form.csrf_token }}</form>
     {% endif %}
   </div>
