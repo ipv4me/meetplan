@@ -9,7 +9,7 @@
     <p class="text-muted small mb-3">Отправьте ссылку — человек сразу попадёт к вам в друзья. Передавая ссылку, вы соглашаетесь принять запрос.</p>
     <div class="input-group">
       <input type="text" class="form-control form-control-sm" id="inviteUrl" value="{{ invite_url }}" readonly>
-      <button type="button" class="btn btn-outline-primary btn-sm" id="copyInviteBtn">
+      <button type="button" class="btn btn-primary btn-sm" id="copyInviteBtn">
         <i class="bi bi-clipboard"></i> Копировать
       </button>
     </div>
@@ -18,12 +18,12 @@
 
 <div class="card content-card mb-3">
   <div class="card-body">
-    <h6 class="fw-semibold mb-2">Найти по email или имени</h6>
+    <h6 class="fw-semibold mb-2">Найти по имени</h6>
     <div class="input-group">
-      <input type="text" class="form-control form-control-sm" id="friendSearchInput" placeholder="email или username">
+      <input type="text" class="form-control form-control-sm" id="friendSearchInput" placeholder="Иван Иванов">
       <button type="button" class="btn btn-primary btn-sm" id="friendSearchBtn">Добавить</button>
     </div>
-    <p class="text-muted small mt-2 mb-0">Отправится запрос — друг должен его принять.</p>
+    <p class="text-muted small mt-2 mb-0">Сначала ищем по имени. Если не нашли — можно указать email. Отправится запрос, друг должен его принять.</p>
   </div>
 </div>
 

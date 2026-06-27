@@ -123,15 +123,20 @@ def pending_outgoing(user_id):
 
 
 def find_user_for_friend_search(query):
+    """Сначала по имени (поле username), если не нашли — по email."""
     q = (query or "").strip()
     if not q:
-        return None, "Введите email или имя пользователя"
+        return None, "Введите имя или email"
+
+    by_name = User.query.filter(User.username.ilike(q)).all()
+    if len(by_name) == 1:
+        return by_name[0], None
+    if len(by_name) > 1:
+        return None, "Найдено несколько человек с таким именем — укажите email"
+
     if "@" in q:
         user = User.query.filter_by(email=q.lower()).first()
-        if not user:
-            return None, "Пользователь с таким email не найден"
-        return user, None
-    user = User.query.filter(User.username.ilike(q)).first()
-    if not user:
-        return None, "Пользователь не найден"
-    return user, None
+        if user:
+            return user, None
+
+    return None, "Пользователь не найден"

@@ -15,10 +15,12 @@ def _normalize_email(email):
 @bp.route("/register", methods=["GET", "POST"])
 @rate_limit("register")
 def register():
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and request.method == "GET":
         return redirect(url_for("main.calendar"))
     form = RegistrationForm()
     if form.validate_on_submit():
+        if current_user.is_authenticated:
+            logout_user()
         email = _normalize_email(form.email.data)
         user = User(
             username=form.username.data.strip(),
@@ -31,8 +33,9 @@ def register():
         apply_bootstrap_admin_role(user)
         db.session.add(user)
         db.session.commit()
-        flash("Регистрация прошла успешно. Теперь войдите.", "success")
-        return redirect(url_for("main.login"))
+        login_user(user, remember=True)
+        flash("Добро пожаловать в MeetPlan!", "success")
+        return redirect(url_for("main.calendar"))
     if request.method == "POST" and form.errors:
         record_failed_login("register")
     return render_template("register.html", form=form)

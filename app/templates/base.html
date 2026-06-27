@@ -27,7 +27,7 @@
 ] %}
 {% set more_endpoints = [
   'main.profile', 'main.settings', 'main.free_time',
-  'main.new_meeting', 'main.admin_users', 'main.stats', 'main.edit_meeting', 'main.edit_event'
+  'main.new_meeting', 'main.admin_users', 'main.edit_meeting', 'main.edit_event'
 ] %}
 
 <a href="#main-content" class="skip-link">Перейти к содержимому</a>
@@ -62,9 +62,6 @@
       {% if current_user.is_admin %}
       <a href="{{ url_for('main.admin_users') }}" class="nav-link {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
         <i class="bi bi-shield-lock"></i> <span>Администрирование</span>
-      </a>
-      <a href="{{ url_for('main.stats') }}" class="nav-link {% if request.endpoint == 'main.stats' %}active{% endif %}">
-        <i class="bi bi-bar-chart"></i> <span>Статистика</span>
       </a>
       {% endif %}
     </nav>
@@ -157,9 +154,6 @@
       {% if current_user.is_admin %}
       <a href="{{ url_for('main.admin_users') }}" class="nav-link {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
         <i class="bi bi-shield-lock"></i> <span>Администрирование</span>
-      </a>
-      <a href="{{ url_for('main.stats') }}" class="nav-link {% if request.endpoint == 'main.stats' %}active{% endif %}">
-        <i class="bi bi-bar-chart"></i> <span>Статистика</span>
       </a>
       {% endif %}
     </nav>

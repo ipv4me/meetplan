@@ -12,7 +12,7 @@ from app.models import User
 
 
 class RegistrationForm(FlaskForm):
-    username = StringField("Имя пользователя", validators=[DataRequired(), Length(2, 64)])
+    username = StringField("Имя", validators=[DataRequired(), Length(2, 64)])
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Пароль", validators=[DataRequired(), Length(min=6)])
     password2 = PasswordField(

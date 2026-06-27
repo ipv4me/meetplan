@@ -5,19 +5,53 @@
 {% block content %}
 <div class="card content-card mb-3">
   <div class="card-body">
+    <h6 class="mb-3 fw-semibold">Платформа</h6>
     <div class="stat-grid stat-grid-metrics">
       <div class="stat-item"><span class="stat-num">{{ platform_stats.users }}</span><span class="stat-label">Пользователей</span></div>
       <div class="stat-item"><span class="stat-num">{{ platform_stats.admins }}</span><span class="stat-label">Админов</span></div>
       <div class="stat-item"><span class="stat-num">{{ platform_stats.friendships }}</span><span class="stat-label">Дружб</span></div>
+      <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_stats.pending_friend_requests }}</span><span class="stat-label">Запросов в друзья</span></div>
       <div class="stat-item"><span class="stat-num">{{ platform_stats.meetings_month }}</span><span class="stat-label">Встреч в месяце</span></div>
       <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_stats.pending_requests }}</span><span class="stat-label">Ожидают ответа</span></div>
     </div>
   </div>
 </div>
 
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-6">
+    <div class="card content-card stat-panel h-100">
+      <div class="card-body">
+        <h6 class="mb-3 fw-semibold">Мои встречи — {{ month_label }}</h6>
+        <div class="stat-grid stat-grid-metrics">
+          <div class="stat-item"><span class="stat-num">{{ my_counts.total }}</span><span class="stat-label">Всего</span></div>
+          <div class="stat-item"><span class="stat-num text-primary">{{ my_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
+          <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ my_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
+          <div class="stat-item"><span class="stat-num text-danger">{{ my_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
+          <div class="stat-item"><span class="stat-num text-muted">{{ my_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card content-card stat-panel h-100">
+      <div class="card-body">
+        <h6 class="mb-1 fw-semibold">Все встречи — {{ month_label }}</h6>
+        <p class="text-muted small mb-3">По всей платформе.</p>
+        <div class="stat-grid stat-grid-metrics">
+          <div class="stat-item"><span class="stat-num">{{ platform_counts.total }}</span><span class="stat-label">Запросов</span></div>
+          <div class="stat-item"><span class="stat-num text-primary">{{ platform_counts.confirmed }}</span><span class="stat-label">Подтверждено</span></div>
+          <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_counts.pending }}</span><span class="stat-label">Ожидают</span></div>
+          <div class="stat-item"><span class="stat-num text-danger">{{ platform_counts.rejected }}</span><span class="stat-label">Отклонено</span></div>
+          <div class="stat-item"><span class="stat-num text-muted">{{ platform_counts.cancelled }}</span><span class="stat-label">Отменено</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="card content-card">
   <div class="card-body">
-    {{ page_header('Все зарегистрированные пользователи. Назначайте администраторов — они увидят эту панель и статистику.', title='Пользователи') }}
+    {{ page_header('Назначайте администраторов — они увидят эту панель.', title='Пользователи') }}
 
     {% for u in members %}
     <div class="request-card admin-user-row" data-user-id="{{ u.id }}">

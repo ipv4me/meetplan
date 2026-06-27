@@ -30,6 +30,8 @@ def client(app):
 
 
 def _register(client, username, email, password="secret123"):
+    with client.session_transaction() as sess:
+        sess.clear()
     return client.post("/register", data={
         "username": username,
         "email": email,
@@ -55,8 +57,17 @@ def _make_friends(app, email_a, email_b):
 def test_register_and_login(client):
     r = _register(client, "alice", "alice@test.com")
     assert r.status_code == 200
-    r = _login(client, "alice@test.com")
+    r = client.get("/calendar")
     assert r.status_code == 200
+
+
+def test_register_auto_login(client):
+    _register(client, "newbie", "newbie@test.com")
+    r = client.get("/calendar")
+    assert r.status_code == 200
+    r = client.get("/login", follow_redirects=False)
+    assert r.status_code == 302
+    assert "calendar" in r.location
 
 
 def test_meeting_flow(client, app):
@@ -142,7 +153,9 @@ def test_bootstrap_admin_and_promote(client, app):
 
     _login(client, "owner@test.com")
     assert client.get("/admin/users").status_code == 200
-    assert client.get("/stats").status_code == 200
+    r = client.get("/stats")
+    assert r.status_code == 302
+    assert "admin/users" in r.location
     r = client.post(
         f"/api/admin/users/{member_id}/role",
         json={"role": "admin"},
@@ -188,12 +201,28 @@ def test_invite_link_adds_friend(client, app):
         assert are_friends(host.id, guest.id)
 
 
+def test_friend_search_by_name(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "Bob", "bob@test.com")
+    _login(client, "alice@test.com")
+    r = client.post("/api/friends/search", json={"query": "Bob"})
+    assert r.get_json()["ok"] is True
+
+
+def test_friend_search_by_email_fallback(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "charlie", "charlie@test.com")
+    _login(client, "alice@test.com")
+    r = client.post("/api/friends/search", json={"query": "charlie@test.com"})
+    assert r.get_json()["ok"] is True
+
+
 def test_friend_search_request(client, app):
     _register(client, "alice", "alice@test.com")
     _register(client, "bob", "bob@test.com")
 
     _login(client, "alice@test.com")
-    r = client.post("/api/friends/search", json={"query": "bob@test.com"})
+    r = client.post("/api/friends/search", json={"query": "bob"})
     assert r.get_json()["ok"] is True
 
     _login(client, "bob@test.com")

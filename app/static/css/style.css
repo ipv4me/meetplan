@@ -260,11 +260,18 @@ img.avatar { object-fit: cover; }
   border-radius: 6px;
   font-weight: 500;
 }
-/* неделя / день — блок с левой полосой */
+/* неделя / день — блок с левой полосой, время + заголовок внутри */
 .fc-timegrid-event.fc-event {
   border-width: 1px 1px 1px 4px !important;
   padding: 1px 2px;
+  overflow: hidden;
 }
+.fc-timegrid-event .fc-event-main {
+  overflow: hidden;
+  padding: 1px 3px;
+  min-height: 0;
+}
+.fc-timegrid-event .fc-event-time { display: none !important; }
 .fc-v-event .fc-event-main { padding: 1px 3px; }
 /* месяц — компактная полоска без «двойной» рамки */
 .fc-daygrid-event.fc-event {
@@ -292,10 +299,30 @@ img.avatar { object-fit: cover; }
 .fc .ev-month-time { font-weight: 600; }
 .fc .ev-month-sep { margin: 0 3px; opacity: .65; }
 .fc .ev-month-title { font-weight: 500; }
-/* компактный контент события (неделя/день): каждая строка в одну линию с многоточием */
-.fc .ev-content { overflow: hidden; line-height: 1.2; }
-.fc .ev-time { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fc .ev-title { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* компактный контент события (неделя/день): время сверху, заголовок снизу — оба с ellipsis */
+.fc .ev-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  line-height: 1.15;
+  max-height: 100%;
+  min-height: 0;
+}
+.fc .ev-time {
+  font-size: .68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+.fc .ev-title {
+  font-size: .72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 0;
+}
 
 /* вид «Список» (повестка) — карточки с датой и временем */
 .fc .fc-list-empty {

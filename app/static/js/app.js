@@ -404,10 +404,11 @@ function renderEventContent(arg) {
     return { html: '<div class="ev-month">' + line + "</div>" };
   }
   if (!arg.view.type.startsWith("timeGrid")) return;
+  const timeStr = arg.timeText || formatListTimeRange(arg.event);
   return {
     html:
       '<div class="ev-content">' +
-      (arg.timeText ? '<div class="ev-time">' + arg.timeText + "</div>" : "") +
+      (timeStr ? '<div class="ev-time">' + escapeHtml(timeStr) + "</div>" : "") +
       '<div class="ev-title">' + escapeHtml(arg.event.title) + "</div>" +
       "</div>",
   };
@@ -506,6 +507,8 @@ function initCalendar(el) {
         listDaySideFormat: false,
         noEventsContent: { html: '<div class="fc-list-empty">На этой неделе событий нет</div>' },
       },
+      dayGridMonth: { displayEventTime: false },
+      dayGridDay: { displayEventTime: false },
     },
     slotMinTime: "07:00:00",
     slotMaxTime: "23:00:00",
