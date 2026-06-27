@@ -17,7 +17,7 @@
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body{% if current_user.is_authenticated %} data-user-id="{{ current_user.id }}"{% endif %}{% if request.endpoint == 'main.friends' %} data-mark-friends-onboarding="1"{% endif %}>
 {% from '_macros.html' import avatar %}
 {% set bottom_nav = [
   ('main.calendar', 'bi-calendar3', 'Календарь', false),

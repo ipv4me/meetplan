@@ -5,12 +5,13 @@
 {% block content %}
 
 {% if not users %}
-<div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-3 onboarding-banner" role="status">
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-3 onboarding-banner" role="status" id="friendsOnboarding">
   <div class="flex-grow-1">
     <strong>Добро пожаловать!</strong>
     <span class="ms-1">Добавьте друзей — тогда можно назначать встречи и смотреть их календари.</span>
   </div>
-  <a href="{{ url_for('main.friends') }}" class="btn btn-primary btn-sm flex-shrink-0">Перейти к друзьям</a>
+  <a href="{{ url_for('main.friends') }}" class="btn btn-primary btn-sm flex-shrink-0 onboarding-dismiss-cta">Перейти к друзьям</a>
+  <button type="button" class="btn-close onboarding-dismiss-btn ms-auto" aria-label="Скрыть подсказку"></button>
 </div>
 {% endif %}
 

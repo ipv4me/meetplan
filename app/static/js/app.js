@@ -4,6 +4,7 @@ let calendar = null;
 let activeEvent = null; // событие, открытое в модалке деталей
 
 document.addEventListener("DOMContentLoaded", function () {
+  initFriendsOnboarding();
   const el = document.getElementById("calendar");
   if (el) initCalendar(el);
   bindNewEventModal();
@@ -17,6 +18,48 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 /* ---------- Утилиты UI ---------- */
+const FRIENDS_ONBOARDING_KEY = "meetplan_friends_onboarding_dismissed";
+
+function friendsOnboardingStorageKey() {
+  const uid = document.body.dataset.userId;
+  return FRIENDS_ONBOARDING_KEY + (uid ? "_" + uid : "");
+}
+
+function dismissFriendsOnboarding() {
+  try {
+    localStorage.setItem(friendsOnboardingStorageKey(), "1");
+  } catch (e) { /* private mode */ }
+}
+
+function isFriendsOnboardingDismissed() {
+  try {
+    return localStorage.getItem(friendsOnboardingStorageKey()) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function initFriendsOnboarding() {
+  if (document.body.dataset.markFriendsOnboarding) {
+    dismissFriendsOnboarding();
+  }
+  const banner = document.getElementById("friendsOnboarding");
+  if (!banner) return;
+  if (isFriendsOnboardingDismissed()) {
+    banner.remove();
+    return;
+  }
+  const cta = banner.querySelector(".onboarding-dismiss-cta");
+  if (cta) cta.addEventListener("click", dismissFriendsOnboarding);
+  const closeBtn = banner.querySelector(".onboarding-dismiss-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", function () {
+      dismissFriendsOnboarding();
+      banner.remove();
+    });
+  }
+}
+
 function btnBusy(btn, busy, label) {
   if (!btn) return;
   if (busy) {
