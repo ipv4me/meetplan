@@ -40,6 +40,11 @@ def ensure_schema():
         if "avatar" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR(256)"))
             db.session.commit()
+    if "tasks" in inspector.get_table_names():
+        cols = [c["name"] for c in inspector.get_columns("tasks")]
+        if "due_time" not in cols:
+            db.session.execute(text("ALTER TABLE tasks ADD COLUMN due_time TIME"))
+            db.session.commit()
 
 
 def seed_statuses():

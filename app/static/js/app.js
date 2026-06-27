@@ -57,6 +57,7 @@ function initTasks() {
   const addBtn = document.getElementById("taskAdd");
   const titleInput = document.getElementById("taskTitle");
   const dateInput = document.getElementById("taskDate");
+  const timeInput = document.getElementById("taskTime");
   const errEl = document.getElementById("taskError");
   const emptyEl = document.getElementById("taskEmpty");
 
@@ -70,11 +71,16 @@ function initTasks() {
         url: "/api/tasks",
         type: "POST",
         contentType: "application/json",
-        data: JSON.stringify({ title: title, due_date: dateInput.value || null }),
+        data: JSON.stringify({
+          title: title,
+          due_date: dateInput.value || null,
+          due_time: timeInput && timeInput.value ? timeInput.value : null,
+        }),
         success: function (t) {
           list.insertAdjacentHTML("afterbegin", renderTask(t));
           titleInput.value = "";
           dateInput.value = "";
+          if (timeInput) timeInput.value = "";
           titleInput.focus();
           if (emptyEl) emptyEl.classList.add("d-none");
         },

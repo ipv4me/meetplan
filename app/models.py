@@ -108,9 +108,20 @@ class Task(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     title = db.Column(db.String(140), nullable=False)
     due_date = db.Column(db.Date)  # необязательная дата
+    due_time = db.Column(db.Time)  # необязательное время
     done = db.Column(db.Boolean, default=False, nullable=False)
     color = db.Column(db.String(16), default="#3b82f6")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def due_display(self):
+        """Форматированная дата/время для отображения."""
+        if not self.due_date:
+            return None
+        text = self.due_date.strftime("%d.%m.%Y")
+        if self.due_time:
+            text += ", " + self.due_time.strftime("%H:%M")
+        return text
 
     def __repr__(self):
         return f"<Task {self.title} done={self.done}>"

@@ -334,7 +334,14 @@ def tasks():
     items = (
         Task.query
         .filter_by(user_id=current_user.id)
-        .order_by(Task.done, Task.due_date.is_(None), Task.due_date, Task.created_at.desc())
+        .order_by(
+            Task.done,
+            Task.due_date.is_(None),
+            Task.due_date,
+            Task.due_time.is_(None),
+            Task.due_time,
+            Task.created_at.desc(),
+        )
         .all()
     )
     return render_template("tasks.html", tasks=items, pending_count=_pending_count())
@@ -355,11 +362,21 @@ def api_create_task():
         except ValueError:
             return jsonify({"ok": False, "error": "Некорректная дата"}), 400
 
+    due_time = None
+    if data.get("due_time"):
+        try:
+            due_time = datetime.strptime(data["due_time"], "%H:%M").time()
+        except ValueError:
+            return jsonify({"ok": False, "error": "Некорректное время"}), 400
+    if due_time and not due:
+        return jsonify({"ok": False, "error": "Укажите дату для времени"}), 400
+
     count = Task.query.filter_by(user_id=current_user.id).count()
     task = Task(
         user_id=current_user.id,
         title=title,
         due_date=due,
+        due_time=due_time,
         color=TASK_PALETTE[count % len(TASK_PALETTE)],
     )
     db.session.add(task)
@@ -369,7 +386,7 @@ def api_create_task():
         "id": task.id,
         "title": task.title,
         "color": task.color,
-        "due": task.due_date.strftime("%d.%m.%Y") if task.due_date else "",
+        "due": task.due_display or "",
         "done": task.done,
     })
 

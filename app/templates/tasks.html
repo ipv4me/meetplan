@@ -10,6 +10,7 @@
     <div class="todo-add">
       <input type="text" class="form-control" id="taskTitle" placeholder="Новое дело…" autocomplete="off">
       <input type="date" class="form-control todo-date" id="taskDate" title="Дата (необязательно)">
+      <input type="time" class="form-control todo-time" id="taskTime" title="Время (необязательно)">
       <button class="btn btn-primary" id="taskAdd"><i class="bi bi-plus-lg"></i></button>
     </div>
     <div class="text-danger small mt-1" id="taskError"></div>
@@ -22,7 +23,7 @@
         <span class="task-dot" style="background:{{ t.color }}"></span>
         <div class="flex-grow-1">
           <div class="todo-title">{{ t.title }}</div>
-          {% if t.due_date %}<div class="text-muted small">{{ t.due_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+          {% if t.due_display %}<div class="text-muted small">{{ t.due_display }}</div>{% endif %}
         </div>
         <button class="btn-icon todo-del" title="Удалить"><i class="bi bi-trash"></i></button>
       </div>

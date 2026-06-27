@@ -313,8 +313,10 @@ img.avatar { object-fit: cover; }
 .task-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 /* добавление дела */
-.todo-add { display: flex; gap: 8px; }
+.todo-add { display: flex; gap: 8px; flex-wrap: wrap; }
 .todo-add .todo-date { max-width: 160px; }
+.todo-add .todo-time { max-width: 120px; }
+.todo-add > .form-control:first-child { flex: 1 1 180px; min-width: 0; }
 
 /* элемент чек-листа */
 .todo-item {
@@ -330,9 +332,9 @@ img.avatar { object-fit: cover; }
 .todo-del:hover { color: #ef4444; opacity: 1; }
 
 @media (max-width: 575.98px) {
-  .todo-add { flex-wrap: wrap; }
-  .todo-add .form-control:not(.todo-date) { flex: 1 1 100%; }
-  .todo-add .todo-date { flex: 1; max-width: none; }
+  .todo-add .form-control:first-child { flex: 1 1 100%; }
+  .todo-add .todo-date,
+  .todo-add .todo-time { flex: 1; max-width: none; }
 }
 
 /* ===================== НИЖНЯЯ НАВИГАЦИЯ (телефон) ===================== */

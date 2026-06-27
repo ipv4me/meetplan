@@ -108,7 +108,7 @@
             <span class="task-dot" style="background:{{ t.color }}"></span>
             <div class="flex-grow-1">
               <div class="todo-title">{{ t.title }}</div>
-              {% if t.due_date %}<div class="text-muted small">{{ t.due_date.strftime('%d.%m.%Y') }}</div>{% endif %}
+              {% if t.due_display %}<div class="text-muted small">{{ t.due_display }}</div>{% endif %}
             </div>
           </div>
           {% else %}
