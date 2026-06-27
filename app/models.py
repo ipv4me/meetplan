@@ -1,4 +1,5 @@
 from datetime import datetime
+import secrets
 
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -31,6 +32,7 @@ class User(UserMixin, db.Model):
     organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"))
     role = db.Column(db.String(16), default="member", nullable=False)
     timezone = db.Column(db.String(64), default="Europe/Moscow", nullable=False)
+    invite_token = db.Column(db.String(32), unique=True, index=True)
     created_at = db.Column(db.DateTime, default=utcnow)
 
     organization = db.relationship("Organization")
@@ -57,6 +59,38 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+    def ensure_invite_token(self):
+        if not self.invite_token:
+            self.invite_token = secrets.token_urlsafe(16)
+        return self.invite_token
+
+    @property
+    def display_name(self):
+        return f"{self.username} · {self.email}"
+
+
+class Friendship(db.Model):
+    """Связь между пользователями (запрос или принятая дружба)."""
+
+    __tablename__ = "friendships"
+
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    addressee_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="pending")
+    source = db.Column(db.String(16), default="search")
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    requester = db.relationship("User", foreign_keys=[requester_id])
+    addressee = db.relationship("User", foreign_keys=[addressee_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("requester_id", "addressee_id", name="uq_friendship_pair"),
+    )
+
+    def other_user_id(self, viewer_id):
+        return self.addressee_id if self.requester_id == viewer_id else self.requester_id
 
 
 class Status(db.Model):

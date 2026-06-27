@@ -52,7 +52,7 @@ def new_meeting():
             flash("Нельзя назначить встречу самому себе.", "danger")
             return redirect(url_for("main.new_meeting"))
         if form.to_user.data not in valid_colleague_ids():
-            flash("Выберите участника из вашей организации.", "danger")
+            flash("Выберите друга из списка.", "danger")
             return redirect(url_for("main.new_meeting"))
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
@@ -97,7 +97,7 @@ def edit_meeting(event_id):
         form.end_time.data = end_local.time()
     if form.validate_on_submit():
         if form.to_user.data not in valid_colleague_ids():
-            flash("Выберите участника из вашей организации.", "danger")
+            flash("Выберите друга из списка.", "danger")
             return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
@@ -141,7 +141,7 @@ def api_check_conflicts():
     if to_user == current_user.id:
         return jsonify({"ok": False, "error": "Нельзя назначить встречу самому себе"}), 400
     if to_user not in valid_colleague_ids():
-        return jsonify({"ok": False, "error": "Участник не из вашей организации"}), 400
+        return jsonify({"ok": False, "error": "Пользователь не в списке друзей"}), 400
     conflicts = find_conflicts(
         [current_user.id, to_user], start, end,
         exclude_event_id=int(exclude) if exclude else None,
@@ -165,6 +165,20 @@ def api_cancel_meeting(event_id):
         part.status_id = STATUS_CANCELLED
     db.session.commit()
     return jsonify({"ok": True, "status": STATUS_CANCELLED, "label": status_label(STATUS_CANCELLED)})
+
+
+@bp.route("/api/meetings/<int:event_id>", methods=["DELETE"])
+@login_required
+def api_delete_meeting(event_id):
+    ev = db.session.get(Event, event_id)
+    if ev is None or ev.event_type != "meeting" or not ev.request:
+        abort(404)
+    req = ev.request
+    if current_user.id not in (req.from_user_id, req.to_user_id):
+        abort(403)
+    db.session.delete(ev)
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @bp.route("/requests")

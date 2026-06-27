@@ -270,27 +270,28 @@ img.avatar { object-fit: cover; }
 .fc-daygrid-event.fc-event {
   border-width: 0 0 0 3px !important;
   border-style: solid;
-  padding: 3px 5px;
+  padding: 2px 5px;
   margin-top: 1px;
   box-shadow: none !important;
   overflow: hidden;
+  min-height: 1.35em;
 }
 .fc-daygrid-event .fc-event-main {
   overflow: hidden;
   padding: 0;
 }
+.fc-daygrid-event .fc-event-time { display: none !important; }
 .fc .ev-month {
   display: block;
-  line-height: 1.3;
+  line-height: 1.25;
   font-size: .72rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.fc .ev-month-time {
-  font-weight: 600;
-  margin-right: 3px;
-}
+.fc .ev-month-time { font-weight: 600; }
+.fc .ev-month-sep { margin: 0 3px; opacity: .65; }
+.fc .ev-month-title { font-weight: 500; }
 /* компактный контент события (неделя/день): каждая строка в одну линию с многоточием */
 .fc .ev-content { overflow: hidden; line-height: 1.2; }
 .fc .ev-time { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

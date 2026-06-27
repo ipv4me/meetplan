@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, current_ap
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app import db
-from app.models import User, Organization
+from app.models import User
 from app.forms import RegistrationForm, LoginForm
 from app.helpers import rate_limit, apply_bootstrap_admin_role, record_failed_login
 from app.routes import bp
@@ -19,16 +19,15 @@ def register():
         return redirect(url_for("main.calendar"))
     form = RegistrationForm()
     if form.validate_on_submit():
-        org = Organization.query.first()
         email = _normalize_email(form.email.data)
         user = User(
             username=form.username.data.strip(),
             email=email,
-            organization_id=org.id if org else None,
             role="member",
             timezone=current_app.config.get("DEFAULT_USER_TIMEZONE", "Europe/Moscow"),
         )
         user.set_password(form.password.data)
+        user.ensure_invite_token()
         apply_bootstrap_admin_role(user)
         db.session.add(user)
         db.session.commit()

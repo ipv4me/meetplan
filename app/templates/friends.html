@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar, empty_state, pagination_nav, page_header %}
+{% block title %}Друзья — MeetPlan{% endblock %}
+{% block topbar_title %}Друзья{% endblock %}
+{% block content %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-2">Ссылка-приглашение</h6>
+    <p class="text-muted small mb-3">Отправьте ссылку — человек сразу попадёт к вам в друзья. Передавая ссылку, вы соглашаетесь принять запрос.</p>
+    <div class="input-group">
+      <input type="text" class="form-control form-control-sm" id="inviteUrl" value="{{ invite_url }}" readonly>
+      <button type="button" class="btn btn-outline-primary btn-sm" id="copyInviteBtn">
+        <i class="bi bi-clipboard"></i> Копировать
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-2">Найти по email или имени</h6>
+    <div class="input-group">
+      <input type="text" class="form-control form-control-sm" id="friendSearchInput" placeholder="email или username">
+      <button type="button" class="btn btn-primary btn-sm" id="friendSearchBtn">Добавить</button>
+    </div>
+    <p class="text-muted small mt-2 mb-0">Отправится запрос — друг должен его принять.</p>
+  </div>
+</div>
+
+{% if incoming %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">Входящие запросы</h6>
+    {% for req in incoming %}
+    <div class="request-card friend-request-row" data-id="{{ req.id }}">
+      {{ avatar(req.requester) }}
+      <div class="request-main">
+        <div class="fw-semibold">{{ req.requester.display_name }}</div>
+        <div class="text-muted small">Хочет добавить вас в друзья</div>
+      </div>
+      <div class="request-actions request-actions-row">
+        <button type="button" class="btn btn-primary btn-sm friend-accept-btn">Принять</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm friend-reject-btn">Отклонить</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if outgoing %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">Исходящие запросы</h6>
+    {% for req in outgoing %}
+    <div class="request-card">
+      {{ avatar(req.addressee) }}
+      <div class="request-main">
+        <div class="fw-semibold">{{ req.addressee.display_name }}</div>
+        <div class="text-muted small">Ожидает ответа</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card content-card">
+  <div class="card-body">
+    {{ page_header('Календарь друга, свободные слоты и новая встреча.', url_for('main.new_meeting'), 'Новая встреча', 'bi-calendar-plus', title='Мои друзья') }}
+
+    {% for u in users %}
+    <div class="request-card">
+      {{ avatar(u) }}
+      <div class="request-main">
+        <div class="fw-semibold">{{ u.username }}</div>
+        <div class="text-muted small">{{ u.display_name }}</div>
+      </div>
+      <div class="request-actions request-actions-row">
+        <a href="{{ url_for('main.user_calendar', user_id=u.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-calendar-week"></i> Календарь
+        </a>
+        <a href="{{ url_for('main.free_time', user=u.id) }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-clock-history"></i> Слоты
+        </a>
+        <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
+          <i class="bi bi-calendar-plus"></i> Встреча
+        </a>
+      </div>
+    </div>
+    {% else %}
+    {{ empty_state('bi-people', 'Друзей пока нет', 'Отправьте ссылку-приглашение или найдите человека по email.') }}
+    {% endfor %}
+    {{ pagination_nav(pagination, 'page') }}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById("copyInviteBtn").addEventListener("click", function () {
+  const input = document.getElementById("inviteUrl");
+  input.select();
+  navigator.clipboard.writeText(input.value).then(function () {
+    showSuccessToast("Ссылка скопирована");
+  });
+});
+
+document.getElementById("friendSearchBtn").addEventListener("click", function () {
+  const btn = this;
+  const query = document.getElementById("friendSearchInput").value.trim();
+  if (!query) return;
+  btnBusy(btn, true, "Отправляем…");
+  $.ajax({
+    url: "/api/friends/search",
+    type: "POST",
+    contentType: "application/json",
+    data: JSON.stringify({ query: query }),
+    success: function () { location.reload(); },
+    error: function (xhr) {
+      btnBusy(btn, false);
+      showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Не удалось отправить запрос");
+    },
+  });
+});
+
+document.querySelectorAll(".friend-accept-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    const row = btn.closest(".friend-request-row");
+    const id = row.dataset.id;
+    btnBusy(btn, true, "…");
+    $.post("/api/friends/requests/" + id + "/accept", function () { location.reload(); })
+      .fail(function (xhr) {
+        btnBusy(btn, false);
+        showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Ошибка");
+      });
+  });
+});
+
+document.querySelectorAll(".friend-reject-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    const row = btn.closest(".friend-request-row");
+    const id = row.dataset.id;
+    btnBusy(btn, true, "…");
+    $.post("/api/friends/requests/" + id + "/reject", function () { location.reload(); })
+      .fail(function (xhr) {
+        btnBusy(btn, false);
+        showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Ошибка");
+      });
+  });
+});
+</script>
+{% endblock %}

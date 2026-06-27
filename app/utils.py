@@ -108,6 +108,7 @@ def _tasks_to_fc(user):
                 "statusId": STATUS_CONFIRMED,
                 "statusLabel": "Задача",
                 "isOwner": True,
+                "canDelete": True,
                 "accent": border,
             },
         })
@@ -120,6 +121,7 @@ def _to_fc(ev, status_id, is_owner=False):
         ev.event_type == "meeting"
         and status_id not in (STATUS_REJECTED, STATUS_CANCELLED)
     )
+    can_delete = ev.event_type == "meeting"
     return {
         "id": ev.id,
         "title": ev.title,
@@ -135,6 +137,7 @@ def _to_fc(ev, status_id, is_owner=False):
             "statusLabel": status_label(status_id) if ev.event_type == "meeting" else "Личное событие",
             "isOwner": is_owner,
             "canCancel": can_cancel,
+            "canDelete": can_delete,
             "accent": border,
         },
         "editable": ev.event_type == "personal" and is_owner,

@@ -5,15 +5,15 @@
 {% block content %}
 <div class="card content-card">
   <div class="card-body">
-    {{ page_header('Выберите участника — покажем часовые слоты, когда вы оба свободны на ближайшую неделю.') }}
+    {{ page_header('Выберите друга — покажем часовые слоты, когда вы оба свободны на ближайшую неделю.') }}
 
     <form method="GET" class="row g-2 align-items-end mb-4">
       <div class="col-12 col-md-6">
-        <label class="form-label small">Участник</label>
+        <label class="form-label small">Друг</label>
         <select name="user" class="form-select" required onchange="this.form.submit()">
-          <option value="" disabled {% if not selected_user %}selected{% endif %}>Выберите участника…</option>
+          <option value="" disabled {% if not selected_user %}selected{% endif %}>Выберите друга…</option>
           {% for u in users %}
-          <option value="{{ u.id }}" {% if selected_user and selected_user.id == u.id %}selected{% endif %}>{{ u.username }}</option>
+          <option value="{{ u.id }}" {% if selected_user and selected_user.id == u.id %}selected{% endif %}>{{ u.display_name }}</option>
           {% endfor %}
         </select>
       </div>

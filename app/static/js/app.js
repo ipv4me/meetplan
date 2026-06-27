@@ -392,19 +392,16 @@ function rightToolbar() {
     : "addEvent dayGridMonth,timeGridWeek,timeGridDay";
 }
 
-/* компактный рендер события: время + заголовок — по строке с многоточием */
+/* компактный рендер события: в месяце — одна строка «время · заголовок» */
 function renderEventContent(arg) {
   if (arg.view.type.startsWith("list")) return renderListEventContent(arg);
   if (arg.view.type.startsWith("dayGrid")) {
-    const time = arg.timeText
-      ? '<span class="ev-month-time">' + arg.timeText + "</span>"
-      : "";
-    return {
-      html:
-        '<div class="ev-month">' +
-        time +
-        '<span class="ev-month-title">' + escapeHtml(arg.event.title) + "</span></div>",
-    };
+    const time = monthEventTime(arg);
+    const title = escapeHtml(arg.event.title);
+    const line = time
+      ? '<span class="ev-month-time">' + time + '</span><span class="ev-month-sep">·</span><span class="ev-month-title">' + title + "</span>"
+      : '<span class="ev-month-title">' + title + "</span>";
+    return { html: '<div class="ev-month">' + line + "</div>" };
   }
   if (!arg.view.type.startsWith("timeGrid")) return;
   return {
@@ -414,6 +411,13 @@ function renderEventContent(arg) {
       '<div class="ev-title">' + escapeHtml(arg.event.title) + "</div>" +
       "</div>",
   };
+}
+
+function monthEventTime(arg) {
+  if (!arg.timeText) return "";
+  const parts = arg.timeText.split(/\s*[–—-]\s*/);
+  if (parts.length >= 2 && parts[0] === parts[1]) return parts[0];
+  return parts[0];
 }
 
 /* карточка события для вида «Список» */
@@ -526,6 +530,7 @@ function initCalendar(el) {
     },
     events: eventsUrl,
     eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
+    displayEventTime: false,
     eventContent: renderEventContent,
     eventDidMount: function (info) {
       if (!info.view.type.startsWith("list")) return;
@@ -537,10 +542,6 @@ function initCalendar(el) {
       calendar.setOption("height", calHeight(info.view.type));
     },
     eventClick: function (info) {
-      if (info.event.extendedProps.type === "task") {
-        window.location.href = "/tasks";
-        return;
-      }
       showEventDetails(info.event);
     },
     editable: !isReadOnly,
@@ -616,7 +617,7 @@ function showEventDetails(event) {
   if (props.type === "busy") {
     descEl.textContent = "Участник занят в это время.";
   } else if (props.type === "task") {
-    descEl.textContent = "Задача из раздела «Мои дела». Нажмите, чтобы перейти к списку.";
+    descEl.textContent = "Задача из раздела «Мои дела». Можно удалить — она исчезнет и из списка дел.";
   } else {
     descEl.textContent = props.description || "Без описания";
   }
@@ -631,9 +632,20 @@ function showEventDetails(event) {
   badge.textContent = props.statusLabel || "";
   badge.className = "badge " + statusClass(props.type, props.statusId);
 
-  // удалять можно только личные дела (свои)
+  // удаление: личные дела, встречи (полностью), задачи
   const delBtn = document.getElementById("evDelete");
-  if (delBtn) delBtn.style.display = props.type === "personal" ? "inline-block" : "none";
+  if (delBtn) {
+    const canDelete =
+      props.canDelete === true || props.type === "personal";
+    delBtn.style.display = canDelete ? "inline-block" : "none";
+    if (props.type === "meeting") {
+      delBtn.innerHTML = '<i class="bi bi-trash"></i> Удалить встречу';
+    } else if (props.type === "task") {
+      delBtn.innerHTML = '<i class="bi bi-trash"></i> Удалить задачу';
+    } else {
+      delBtn.innerHTML = '<i class="bi bi-trash"></i> Удалить';
+    }
+  }
 
   const editBtn = document.getElementById("evEdit");
   if (editBtn && props.isOwner && props.type !== "task") {
@@ -654,29 +666,48 @@ function showEventDetails(event) {
 }
 
 /* удаление / отмена события */
+function deleteEventRequest(event) {
+  const props = event.extendedProps;
+  if (props.type === "task") return "/api/tasks/" + props.taskId;
+  if (props.type === "meeting") return "/api/meetings/" + event.id;
+  return "/api/events/" + event.id;
+}
+
+function deleteEventMessage(event) {
+  const props = event.extendedProps;
+  const title = event.title || "событие";
+  if (props.type === "meeting") {
+    return { title: "Удалить встречу?", message: "«" + title + "» будет удалена полностью у всех участников." };
+  }
+  if (props.type === "task") {
+    return { title: "Удалить задачу?", message: "«" + title + "» будет удалена из календаря и списка дел." };
+  }
+  return { title: "Удалить событие?", message: "«" + title + "» будет удалено из календаря." };
+}
+
 document.addEventListener("click", function (e) {
   if (e.target.closest("#evDelete") && activeEvent) {
     const delBtn = e.target.closest("#evDelete");
     const id = activeEvent.id;
-    const title = activeEvent.title || "событие";
+    const msg = deleteEventMessage(activeEvent);
     confirmAction({
-      title: "Удалить событие?",
-      message: "«" + title + "» будет удалено из календаря.",
+      title: msg.title,
+      message: msg.message,
       confirmLabel: "Удалить",
       confirmClass: "btn-danger",
     }).then(function (ok) {
       if (!ok) return;
       btnBusy(delBtn, true, "Удаляем…");
       $.ajax({
-        url: "/api/events/" + id,
+        url: deleteEventRequest(activeEvent),
         type: "DELETE",
         success: function () {
           activeEvent.remove();
           bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
           if (calendar) calendar.refetchEvents();
-          showSuccessToast("Событие удалено");
+          showSuccessToast("Удалено");
         },
-        error: function () { showErrorToast("Не удалось удалить событие"); },
+        error: function () { showErrorToast("Не удалось удалить"); },
         complete: function () { btnBusy(delBtn, false); },
       });
     });

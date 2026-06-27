@@ -78,10 +78,15 @@ def sync_bootstrap_admins():
 
 
 def admin_count(organization_id=None):
+    """Число администраторов (платформа или организация)."""
     q = User.query.filter_by(role="admin")
     if organization_id is not None:
         q = q.filter_by(organization_id=organization_id)
     return q.count()
+
+
+def platform_admin_count():
+    return User.query.filter_by(role="admin").count()
 
 
 def admin_required(view):
@@ -94,45 +99,52 @@ def admin_required(view):
     return wrapped
 
 
-def get_colleague(user_id):
-    """Пользователь той же организации или None."""
+def get_friend(user_id):
+    """Принятый друг или сам пользователь."""
+    from app.friends_service import are_friends
+
     if user_id == current_user.id:
         return current_user
     user = db.session.get(User, user_id)
     if user is None:
         return None
-    if not current_user.organization_id:
-        return None
-    if user.organization_id != current_user.organization_id:
+    if not are_friends(current_user.id, user_id):
         return None
     return user
 
 
-def colleagues_query():
-    """Пользователи той же организации, кроме текущего."""
-    if not current_user.organization_id:
+def friends_query():
+    """Принятые друзья (кроме текущего пользователя)."""
+    from app.friends_service import friend_user_ids
+
+    ids = friend_user_ids(current_user.id)
+    if not ids:
         return User.query.filter(false())
-    return (
-        User.query
-        .filter(User.id != current_user.id)
-        .filter(User.organization_id == current_user.organization_id)
-        .order_by(User.username)
-    )
+    return User.query.filter(User.id.in_(ids)).order_by(User.username)
 
 
-def valid_colleague_ids():
-    return {u.id for u in colleagues_query().all()}
+def valid_friend_ids():
+    from app.friends_service import friend_user_ids
+
+    return friend_user_ids(current_user.id)
 
 
-def ensure_colleague(user_id):
-    user = get_colleague(user_id)
+def ensure_friend(user_id):
+    user = get_friend(user_id)
     if user is None:
         abort(404)
     return user
 
 
 def meeting_user_choices():
-    return [(u.id, f"{u.username} ({u.email})") for u in colleagues_query().all()]
+    return [(u.id, u.display_name) for u in friends_query().all()]
+
+
+# совместимость со старыми импортами
+get_colleague = get_friend
+colleagues_query = friends_query
+valid_colleague_ids = valid_friend_ids
+ensure_colleague = ensure_friend
 
 
 def validate_avatar_image(data):
@@ -172,12 +184,15 @@ def client_ip():
 
 
 def can_view_user(user_id):
-    """Себя или коллегу из org — для аватаров и т.п."""
+    """Себя или друга — для аватаров и т.п."""
     if not current_user.is_authenticated:
         return False
     if user_id == current_user.id:
         return True
-    return get_colleague(user_id) is not None
+    if current_user.is_admin:
+        user = db.session.get(User, user_id)
+        return user is not None
+    return get_friend(user_id) is not None
 
 
 def ensure_viewable_user(user_id):

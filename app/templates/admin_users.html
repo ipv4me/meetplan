@@ -3,9 +3,21 @@
 {% block title %}Администрирование — MeetPlan{% endblock %}
 {% block topbar_title %}Администрирование{% endblock %}
 {% block content %}
+<div class="card content-card mb-3">
+  <div class="card-body">
+    <div class="stat-grid stat-grid-metrics">
+      <div class="stat-item"><span class="stat-num">{{ platform_stats.users }}</span><span class="stat-label">Пользователей</span></div>
+      <div class="stat-item"><span class="stat-num">{{ platform_stats.admins }}</span><span class="stat-label">Админов</span></div>
+      <div class="stat-item"><span class="stat-num">{{ platform_stats.friendships }}</span><span class="stat-label">Дружб</span></div>
+      <div class="stat-item"><span class="stat-num">{{ platform_stats.meetings_month }}</span><span class="stat-label">Встреч в месяце</span></div>
+      <div class="stat-item"><span class="stat-num" style="color:#8b5cf6">{{ platform_stats.pending_requests }}</span><span class="stat-label">Ожидают ответа</span></div>
+    </div>
+  </div>
+</div>
+
 <div class="card content-card">
   <div class="card-body">
-    {{ page_header('Назначайте и снимайте права администратора для участников организации. Владелец (email из ADMIN_EMAILS) всегда остаётся администратором.', title='Управление доступом') }}
+    {{ page_header('Все зарегистрированные пользователи. Назначайте администраторов — они увидят эту панель и статистику.', title='Пользователи') }}
 
     {% for u in members %}
     <div class="request-card admin-user-row" data-user-id="{{ u.id }}">
@@ -22,13 +34,13 @@
           <span class="badge text-bg-primary admin-badge">Админ</span>
           {% endif %}
         </div>
-        <div class="text-muted small text-break">{{ u.email }}</div>
+        <div class="text-muted small text-break">{{ u.display_name }}</div>
       </div>
       <div class="request-actions request-actions-row">
         {% if u.id in bootstrap_ids %}
         <span class="text-muted small">Неизменяемо</span>
         {% elif u.id == current_user.id %}
-        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Снимите права у другого админа или передайте их">
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Снимите права у другого админа">
           Администратор
         </button>
         {% elif u.is_admin %}
@@ -43,7 +55,7 @@
       </div>
     </div>
     {% else %}
-    {{ empty_state('bi-shield-lock', 'Нет пользователей', 'В организации пока никого нет.') }}
+    {{ empty_state('bi-shield-lock', 'Нет пользователей', 'Пока никто не зарегистрировался.') }}
     {% endfor %}
   </div>
 </div>
@@ -58,7 +70,7 @@ document.querySelectorAll(".admin-role-btn").forEach(function (btn) {
     const label = role === "admin" ? "назначить администратором" : "снять права администратора";
     confirmAction({
       title: "Изменить права?",
-      message: "Вы уверены, что хотите " + label + " этого участника?",
+      message: "Вы уверены, что хотите " + label + " этого пользователя?",
       confirmLabel: role === "admin" ? "Назначить" : "Снять права",
       confirmClass: role === "admin" ? "btn-primary" : "btn-danger",
     }).then(function (ok) {

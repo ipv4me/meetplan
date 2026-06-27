@@ -59,12 +59,11 @@ def create_app(config_class=Config):
 
         if is_test or not is_prod or not has_tables:
             db.create_all()
-        if not is_prod:
-            ensure_schema()
+        ensure_schema()
         seed_statuses()
         seed_organizations()
-        assign_default_organization()
         sync_bootstrap_admins()
+        ensure_invite_tokens()
 
     return app
 
@@ -100,6 +99,13 @@ def ensure_schema():
         if "timezone" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64) DEFAULT 'Europe/Moscow'"))
             db.session.commit()
+        cols = [c["name"] for c in inspector.get_columns("users")]
+        if "invite_token" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN invite_token VARCHAR(32)"))
+            db.session.commit()
+    if "friendships" not in inspector.get_table_names():
+        from app.models import Friendship
+        Friendship.__table__.create(db.engine)
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
         if "due_time" not in cols:
@@ -172,6 +178,17 @@ def seed_organizations():
 
     if Organization.query.count() == 0:
         db.session.add(Organization(id=1, name="MeetPlan"))
+        db.session.commit()
+
+
+def ensure_invite_tokens():
+    from app.models import User
+
+    changed = False
+    for user in User.query.filter(User.invite_token.is_(None)).all():
+        user.ensure_invite_token()
+        changed = True
+    if changed:
         db.session.commit()
 
 

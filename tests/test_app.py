@@ -1,7 +1,8 @@
 import pytest
 
 from app import create_app, db
-from app.models import User, MeetingRequest
+from app.models import User, MeetingRequest, Event
+from app.friends_service import accept_friendship, create_friend_request
 from config import Config
 
 
@@ -44,6 +45,13 @@ def _login(client, email, password="secret123"):
     }, follow_redirects=True)
 
 
+def _make_friends(app, email_a, email_b):
+    with app.app_context():
+        a = User.query.filter_by(email=email_a).first()
+        b = User.query.filter_by(email=email_b).first()
+        accept_friendship(a.id, b.id, source="invite")
+
+
 def test_register_and_login(client):
     r = _register(client, "alice", "alice@test.com")
     assert r.status_code == 200
@@ -54,12 +62,9 @@ def test_register_and_login(client):
 def test_meeting_flow(client, app):
     _register(client, "user1", "u1@test.com")
     _register(client, "user2", "u2@test.com")
+    _make_friends(app, "u1@test.com", "u2@test.com")
     with app.app_context():
-        u2 = User.query.filter_by(email="u2@test.com").first()
-        u1 = User.query.filter_by(email="u1@test.com").first()
-        u1.organization_id = u2.organization_id = 1
-        db.session.commit()
-        uid2 = u2.id
+        uid2 = User.query.filter_by(email="u2@test.com").first().id
 
     _login(client, "u1@test.com")
     r = client.post("/meeting/new", data={
@@ -85,13 +90,9 @@ def test_meeting_flow(client, app):
 def test_conflict_detection(client, app):
     _register(client, "alex", "a@test.com")
     _register(client, "bob", "b@test.com")
+    _make_friends(app, "a@test.com", "b@test.com")
     with app.app_context():
-        u1 = User.query.filter_by(email="a@test.com").first()
-        u2 = User.query.filter_by(email="b@test.com").first()
-        assert u1 and u2
-        u1.organization_id = u2.organization_id = 1
-        db.session.commit()
-        uid2 = u2.id
+        uid2 = User.query.filter_by(email="b@test.com").first().id
 
     _login(client, "a@test.com")
     client.post("/api/events", json={
@@ -137,9 +138,11 @@ def test_bootstrap_admin_and_promote(client, app):
 
     _login(client, "member@test.com")
     assert client.get("/admin/users").status_code == 403
+    assert client.get("/stats").status_code == 403
 
     _login(client, "owner@test.com")
     assert client.get("/admin/users").status_code == 200
+    assert client.get("/stats").status_code == 200
     r = client.post(
         f"/api/admin/users/{member_id}/role",
         json={"role": "admin"},
@@ -155,29 +158,68 @@ def test_bootstrap_admin_and_promote(client, app):
     assert r.status_code == 403
 
 
-def test_org_isolation_for_calendar(client, app):
+def test_friends_isolation_for_calendar(client, app):
     _register(client, "alice", "alice@test.com")
     _register(client, "bob", "bob@test.com")
     with app.app_context():
-        alice = User.query.filter_by(email="alice@test.com").first()
-        bob = User.query.filter_by(email="bob@test.com").first()
-        alice.organization_id = 1
-        bob.organization_id = 2
-        db.session.commit()
-        bob_id = bob.id
+        bob_id = User.query.filter_by(email="bob@test.com").first().id
 
     _login(client, "alice@test.com")
     assert client.get(f"/users/{bob_id}/calendar").status_code == 404
     assert client.get(f"/api/users/{bob_id}/events").status_code == 404
 
 
+def test_invite_link_adds_friend(client, app):
+    _register(client, "host", "host@test.com")
+    _register(client, "guest", "guest@test.com")
+    with app.app_context():
+        host = User.query.filter_by(email="host@test.com").first()
+        host.ensure_invite_token()
+        db.session.commit()
+        token = host.invite_token
+
+    _login(client, "guest@test.com")
+    r = client.get(f"/friends/join/{token}", follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.friends_service import are_friends
+        host = User.query.filter_by(email="host@test.com").first()
+        guest = User.query.filter_by(email="guest@test.com").first()
+        assert are_friends(host.id, guest.id)
+
+
+def test_friend_search_request(client, app):
+    _register(client, "alice", "alice@test.com")
+    _register(client, "bob", "bob@test.com")
+
+    _login(client, "alice@test.com")
+    r = client.post("/api/friends/search", json={"query": "bob@test.com"})
+    assert r.get_json()["ok"] is True
+
+    _login(client, "bob@test.com")
+    with app.app_context():
+        from app.friends_service import pending_incoming
+        bob = User.query.filter_by(email="bob@test.com").first()
+        incoming = pending_incoming(bob.id)
+        assert len(incoming) == 1
+        rid = incoming[0].id
+
+    r = client.post(f"/api/friends/requests/{rid}/accept")
+    assert r.get_json()["ok"] is True
+    with app.app_context():
+        from app.friends_service import are_friends
+        alice = User.query.filter_by(email="alice@test.com").first()
+        bob = User.query.filter_by(email="bob@test.com").first()
+        assert are_friends(alice.id, bob.id)
+
+
 def test_pending_request_guard(client, app):
     _register(client, "u1", "u1@test.com")
     _register(client, "u2", "u2@test.com")
+    _make_friends(app, "u1@test.com", "u2@test.com")
     with app.app_context():
         u2 = User.query.filter_by(email="u2@test.com").first()
         u1 = User.query.filter_by(email="u1@test.com").first()
-        u1.organization_id = u2.organization_id = 1
         u1.timezone = u2.timezone = "UTC"
         db.session.commit()
         uid2 = u2.id
@@ -204,11 +246,12 @@ def test_pending_request_guard(client, app):
 def test_meeting_cancel_by_invitee(client, app):
     _register(client, "host", "host@test.com")
     _register(client, "guest", "guest@test.com")
+    _make_friends(app, "host@test.com", "guest@test.com")
     with app.app_context():
-        host = User.query.filter_by(email="host@test.com").first()
         guest = User.query.filter_by(email="guest@test.com").first()
-        host.organization_id = guest.organization_id = 1
-        host.timezone = guest.timezone = "UTC"
+        guest.timezone = "UTC"
+        host = User.query.filter_by(email="host@test.com").first()
+        host.timezone = "UTC"
         db.session.commit()
         gid = guest.id
 
@@ -255,14 +298,11 @@ def test_email_normalized(client, app):
         assert user.is_admin
 
 
-def test_avatar_org_isolation(client, app):
+def test_avatar_friends_isolation(client, app):
     _register(client, "alice", "alice@test.com")
     _register(client, "bob", "bob@test.com")
     with app.app_context():
-        bob = User.query.filter_by(email="bob@test.com").first()
-        bob.organization_id = 2
-        db.session.commit()
-        bob_id = bob.id
+        bob_id = User.query.filter_by(email="bob@test.com").first().id
 
     _login(client, "alice@test.com")
     assert client.get(f"/avatars/{bob_id}").status_code == 404
@@ -296,6 +336,33 @@ def test_task_calendar_matches_due_time(client, app):
     assert tasks[0]["start"] == "2026-06-27T20:00:00"
     assert not tasks[0]["start"].endswith("Z")
     assert tasks[0]["end"] == "2026-06-27T21:00:00"
+
+
+def test_meeting_delete(client, app):
+    _register(client, "host", "host@test.com")
+    _register(client, "guest", "guest@test.com")
+    _make_friends(app, "host@test.com", "guest@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest@test.com").first().id
+
+    _login(client, "host@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-07-06",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Standup",
+        "description": "",
+    }, follow_redirects=True)
+
+    with app.app_context():
+        event_id = MeetingRequest.query.first().event_id
+
+    r = client.delete(f"/api/meetings/{event_id}")
+    assert r.get_json()["ok"] is True
+    with app.app_context():
+        assert MeetingRequest.query.count() == 0
+        assert Event.query.count() == 0
 
 
 def test_task_update(client, app):

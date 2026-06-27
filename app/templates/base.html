@@ -22,12 +22,12 @@
 {% set bottom_nav = [
   ('main.calendar', 'bi-calendar3', 'Календарь', false),
   ('main.requests_page', 'bi-inbox', 'Запросы', true),
-  ('main.users', 'bi-people', 'Участники', false),
+  ('main.friends', 'bi-people', 'Друзья', false),
   ('main.tasks', 'bi-check2-square', 'Мои дела', false),
 ] %}
 {% set more_endpoints = [
-  'main.profile', 'main.settings', 'main.stats', 'main.free_time',
-  'main.new_meeting', 'main.admin_users', 'main.edit_meeting', 'main.edit_event'
+  'main.profile', 'main.settings', 'main.free_time',
+  'main.new_meeting', 'main.admin_users', 'main.stats', 'main.edit_meeting', 'main.edit_event'
 ] %}
 
 <a href="#main-content" class="skip-link">Перейти к содержимому</a>
@@ -38,9 +38,8 @@
     ('main.tasks', 'bi-check2-square', 'Мои дела', false),
     ('main.new_meeting', 'bi-calendar-plus', 'Новая встреча', false),
     ('main.requests_page', 'bi-inbox', 'Запросы', true),
-    ('main.users', 'bi-people', 'Участники', false),
+    ('main.friends', 'bi-people', 'Друзья', false),
     ('main.free_time', 'bi-clock-history', 'Свободное время', false),
-    ('main.stats', 'bi-bar-chart', 'Статистика', false),
     ('main.settings', 'bi-gear', 'Настройки', false)
   ] %}
   <aside class="sidebar d-none d-md-flex flex-column">
@@ -63,6 +62,9 @@
       {% if current_user.is_admin %}
       <a href="{{ url_for('main.admin_users') }}" class="nav-link {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
         <i class="bi bi-shield-lock"></i> <span>Администрирование</span>
+      </a>
+      <a href="{{ url_for('main.stats') }}" class="nav-link {% if request.endpoint == 'main.stats' %}active{% endif %}">
+        <i class="bi bi-bar-chart"></i> <span>Статистика</span>
       </a>
       {% endif %}
     </nav>
@@ -108,7 +110,7 @@
 
   <nav class="bottom-nav d-md-none">
     {% for endpoint, icon, label, badge in bottom_nav %}
-    <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint or (endpoint == 'main.users' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
+    <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
       <span class="position-relative">
         <i class="bi {{ icon }}"></i>
         {% if badge and pending_badge %}<span class="dot">{{ pending_badge }}</span>{% endif %}
@@ -149,15 +151,15 @@
       <a href="{{ url_for('main.free_time') }}" class="nav-link {% if request.endpoint == 'main.free_time' %}active{% endif %}">
         <i class="bi bi-clock-history"></i> <span>Свободное время</span>
       </a>
-      <a href="{{ url_for('main.stats') }}" class="nav-link {% if request.endpoint == 'main.stats' %}active{% endif %}">
-        <i class="bi bi-bar-chart"></i> <span>Статистика</span>
-      </a>
       <a href="{{ url_for('main.settings') }}" class="nav-link {% if request.endpoint == 'main.settings' %}active{% endif %}">
         <i class="bi bi-gear"></i> <span>Настройки</span>
       </a>
       {% if current_user.is_admin %}
       <a href="{{ url_for('main.admin_users') }}" class="nav-link {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
         <i class="bi bi-shield-lock"></i> <span>Администрирование</span>
+      </a>
+      <a href="{{ url_for('main.stats') }}" class="nav-link {% if request.endpoint == 'main.stats' %}active{% endif %}">
+        <i class="bi bi-bar-chart"></i> <span>Статистика</span>
       </a>
       {% endif %}
     </nav>
