@@ -7,7 +7,7 @@ from app import db
 from app.models import User, Event, MeetingRequest, Task
 from app.forms import EventForm, MeetingForm
 from app.utils import events_for_user, STATUS_PENDING
-from app.helpers import pending_count, colleagues_query, ensure_colleague
+from app.helpers import pending_count, colleagues_query, ensure_colleague, client_timezone_name
 from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime
 from app.routes import bp
 
@@ -60,8 +60,8 @@ def api_create_event():
     data = request.get_json() or {}
     try:
         title = (data["title"] or "").strip()
-        start = parse_client_datetime(data["start"], current_user)
-        end = parse_client_datetime(data["end"], current_user)
+        start = parse_client_datetime(data["start"], current_user, client_timezone_name())
+        end = parse_client_datetime(data["end"], current_user, client_timezone_name())
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
     if not title or end <= start:
@@ -99,8 +99,8 @@ def api_reschedule_event(event_id):
         abort(404)
     data = request.get_json() or {}
     try:
-        start = parse_client_datetime(data["start"], current_user)
-        end = parse_client_datetime(data["end"], current_user)
+        start = parse_client_datetime(data["start"], current_user, client_timezone_name())
+        end = parse_client_datetime(data["end"], current_user, client_timezone_name())
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
     if end <= start:
@@ -118,6 +118,7 @@ def new_event():
     if form.validate_on_submit():
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
+            client_timezone_name(),
         )
         ev = Event(
             title=form.title.data,
@@ -155,6 +156,7 @@ def edit_event(event_id):
         ev.description = form.description.data
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
+            client_timezone_name(),
         )
         ev.start_datetime = start
         ev.end_datetime = end

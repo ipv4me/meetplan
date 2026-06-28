@@ -36,7 +36,7 @@
 
 <div class="card content-card form-card mb-3">
   <div class="card-body">
-    {{ page_header('Время встреч и календаря отображается в выбранном поясе. В базе хранится UTC.', title='Часовой пояс') }}
+    {{ page_header('Резервный пояс для писем и старых записей. Календарь показывает время устройства.', title='Часовой пояс') }}
     <form method="POST" class="d-flex flex-wrap gap-2 align-items-end">
       {{ tz_form.hidden_tag() }}
       <input type="hidden" name="form_name" value="timezone">

@@ -5,6 +5,8 @@ let activeEvent = null; // событие, открытое в модалке д
 
 document.addEventListener("DOMContentLoaded", function () {
   initFriendsOnboarding();
+  initDeviceTimezoneLabels();
+  initClientTimezoneForms();
   const el = document.getElementById("calendar");
   if (el) initCalendar(el);
   bindNewEventModal();
@@ -77,6 +79,17 @@ function btnBusy(btn, busy, label) {
 function hideCalendarSkeleton() {
   const sk = document.getElementById("calendarSkeleton");
   if (sk) sk.classList.add("is-hidden");
+}
+
+function ajaxErrorMessage(xhr, fallback) {
+  return (xhr.responseJSON && xhr.responseJSON.error) || fallback;
+}
+
+function hideEventModal() {
+  const el = document.getElementById("eventModal");
+  if (!el) return;
+  const inst = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+  inst.hide();
 }
 
 function showErrorToast(message) {
@@ -455,7 +468,7 @@ function renderEventContent(arg) {
     return { html: '<div class="ev-month">' + line + "</div>" };
   }
   if (!arg.view.type.startsWith("timeGrid")) return;
-  const timeStr = formatListTimeRange(arg.event) || arg.timeText;
+  const timeStr = arg.timeText || formatListTimeRange(arg.event);
   return {
     html:
       '<div class="ev-content">' +
@@ -472,22 +485,62 @@ function monthEventTime(arg) {
   return parts[0];
 }
 
-/* карточка события для вида «Список» */
-function calendarTz() {
-  if (calendar) {
-    const tz = calendar.getOption("timeZone");
-    if (tz && tz !== "local") return tz;
+/* карточка события для вида «Список» — время устройства (FullCalendar timeZone: local) */
+function deviceTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch (e) {
+    return "";
   }
-  const el = document.getElementById("calendar");
-  return el ? calendarTimezoneFromEl(el) : undefined;
+}
+
+function deviceTimezoneLabel() {
+  const tz = deviceTimezone();
+  if (!tz) return "местное время устройства";
+  const offsetMin = -new Date().getTimezoneOffset();
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  const hours = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mins = String(abs % 60).padStart(2, "0");
+  const offset = "UTC" + sign + hours + (mins === "00" ? "" : ":" + mins);
+  try {
+    const parts = new Intl.DateTimeFormat("ru-RU", {
+      timeZone: tz,
+      timeZoneName: "long",
+    }).formatToParts(new Date());
+    const name = parts.find(function (p) { return p.type === "timeZoneName"; });
+    return (name ? name.value : tz) + " (" + offset + ")";
+  } catch (e) {
+    return tz + " (" + offset + ")";
+  }
+}
+
+function initDeviceTimezoneLabels() {
+  const label = deviceTimezoneLabel();
+  document.querySelectorAll("[data-device-tz-label]").forEach(function (el) {
+    el.textContent = label;
+  });
+}
+
+function initClientTimezoneForms() {
+  document.addEventListener("submit", function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.method && form.method.toLowerCase() === "get") return;
+    let input = form.querySelector('input[name="client_timezone"]');
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "client_timezone";
+      form.appendChild(input);
+    }
+    input.value = deviceTimezone();
+  });
 }
 
 function formatInCalendarTz(date, options) {
   if (!date) return "";
-  const tz = calendarTz();
-  const opts = Object.assign({}, options);
-  if (tz) opts.timeZone = tz;
-  return new Intl.DateTimeFormat("ru-RU", opts).format(date);
+  return new Intl.DateTimeFormat("ru-RU", options).format(date);
 }
 
 function formatListDate(date) {
@@ -533,19 +586,13 @@ function renderListEventContent(arg) {
   };
 }
 
-function calendarTimezoneFromEl(el) {
-  const raw = (el && el.dataset.timezone || "").trim();
-  return raw || "Europe/Moscow";
-}
-
 function initCalendar(el) {
   const eventsUrl = el.dataset.eventsUrl || "/api/events";
   const isReadOnly = eventsUrl !== "/api/events";
   const viewUserId = el.dataset.viewUserId || "";
-  const tz = calendarTimezoneFromEl(el);
   calendar = new FullCalendar.Calendar(el, {
     locale: "ru",
-    timeZone: tz,
+    timeZone: "local",
     initialView: isMobile() ? "timeGridDay" : "timeGridWeek",
     headerToolbar: {
       left: "today prev,next",
@@ -566,7 +613,7 @@ function initCalendar(el) {
       dayGridDay: { displayEventTime: false },
     },
     slotMinTime: "07:00:00",
-    slotMaxTime: "23:00:00",
+    slotMaxTime: "24:00:00",
     slotDuration: "01:00:00",
     slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
     expandRows: true,         // строки заполняют высоту — без пустот и прокрутки
@@ -720,7 +767,7 @@ function showEventDetails(event) {
     cancelBtn.dataset.eventId = event.id;
   }
 
-  new bootstrap.Modal(document.getElementById("eventModal")).show();
+  new bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
 }
 
 /* удаление / отмена события */
@@ -760,12 +807,13 @@ document.addEventListener("click", function (e) {
         url: deleteEventRequest(activeEvent),
         type: "DELETE",
         success: function () {
-          activeEvent.remove();
-          bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+          hideEventModal();
           if (calendar) calendar.refetchEvents();
           showSuccessToast("Удалено");
         },
-        error: function () { showErrorToast("Не удалось удалить"); },
+        error: function (xhr) {
+          showErrorToast(ajaxErrorMessage(xhr, "Не удалось удалить"));
+        },
         complete: function () { btnBusy(delBtn, false); },
       });
     });
@@ -784,11 +832,13 @@ document.addEventListener("click", function (e) {
         url: "/api/meetings/" + activeEvent.id + "/cancel",
         type: "POST",
         success: function () {
-          bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+          hideEventModal();
           if (calendar) calendar.refetchEvents();
           showSuccessToast("Встреча отменена");
         },
-        error: function () { showErrorToast("Не удалось отменить встречу"); },
+        error: function (xhr) {
+          showErrorToast(ajaxErrorMessage(xhr, "Не удалось отменить встречу"));
+        },
         complete: function () { btnBusy(cancelBtn, false); },
       });
     });

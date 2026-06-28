@@ -34,13 +34,6 @@ def utc_iso(dt):
     return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def event_local_iso(dt, tz):
-    """Naive UTC → локальное wall-clock ISO без Z (для FullCalendar с named timeZone)."""
-    if dt is None:
-        return None
-    return utc_to_local(dt, tz).strftime("%Y-%m-%dT%H:%M:%S")
-
-
 def user_timezone_name(user):
     if user is None:
         return DEFAULT_TIMEZONE
@@ -88,6 +81,16 @@ def user_timezone(user):
     return resolve_tz(getattr(user, "timezone", None) or DEFAULT_TIMEZONE)
 
 
+def effective_timezone(user, client_tz_name=None):
+    """Пояс устройства клиента, иначе — из профиля пользователя."""
+    if client_tz_name:
+        try:
+            return ZoneInfo(client_tz_name)
+        except Exception:
+            pass
+    return user_timezone(user)
+
+
 def local_to_utc(naive_local, tz):
     aware = naive_local.replace(tzinfo=tz)
     return aware.astimezone(timezone.utc).replace(tzinfo=None)
@@ -98,8 +101,8 @@ def utc_to_local(naive_utc, tz):
     return aware.astimezone(tz).replace(tzinfo=None)
 
 
-def combine_user_local(date_value, time_value, user):
-    tz = user_timezone(user)
+def combine_user_local(date_value, time_value, user, client_tz_name=None):
+    tz = effective_timezone(user, client_tz_name)
     local = datetime.combine(date_value, time_value)
     return local_to_utc(local, tz)
 
@@ -113,9 +116,9 @@ def meeting_end_datetime(date_value, start_time, end_time):
     return start, end
 
 
-def combine_user_meeting(date_value, start_time, end_time, user):
+def combine_user_meeting(date_value, start_time, end_time, user, client_tz_name=None):
     start_local, end_local = meeting_end_datetime(date_value, start_time, end_time)
-    tz = user_timezone(user)
+    tz = effective_timezone(user, client_tz_name)
     return local_to_utc(start_local, tz), local_to_utc(end_local, tz)
 
 
@@ -124,8 +127,8 @@ def format_month_year(dt, tz=None):
     return f"{MONTHS_RU[local.month - 1]} {local.year}"
 
 
-def parse_client_datetime(iso_str, user):
-    """ISO от клиента: с Z — UTC, без — локальное время пользователя."""
+def parse_client_datetime(iso_str, user, client_tz_name=None):
+    """ISO от клиента: с Z/offset — UTC, без — локальное время устройства."""
     if not iso_str:
         raise ValueError("empty")
     s = iso_str.strip()
@@ -136,7 +139,7 @@ def parse_client_datetime(iso_str, user):
         dt = datetime.fromisoformat(s)
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     dt = datetime.fromisoformat(s)
-    return local_to_utc(dt, user_timezone(user))
+    return local_to_utc(dt, effective_timezone(user, client_tz_name))
 
 
 def format_dt(dt, user, fmt="%d.%m.%Y в %H:%M"):

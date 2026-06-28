@@ -5,7 +5,7 @@ from datetime import datetime, time as dt_time, timedelta
 from app import db
 from app.models import Event, EventParticipant, MeetingRequest, Task, User
 from app.friends_service import friend_shares_details_with
-from app.time_utils import event_local_iso, task_block_local_iso, user_timezone
+from app.time_utils import utc_iso, task_block_utc
 
 # Насыщенные цвета (легенда, левая полоса события)
 COLOR_PERSONAL = "#f59e0b"   # личные дела — жёлтый
@@ -56,16 +56,15 @@ def events_for_user(user_id, viewer_id=None):
     is_self = viewer_id is None or viewer_id == user_id
     can_see_details = is_self or friend_shares_details_with(user_id, viewer_id)
     owner = db.session.get(User, user_id)
-    display_tz = user_timezone(owner)
 
     personal = Event.query.filter_by(created_by=user_id, event_type="personal").all()
     for ev in personal:
         if is_self:
-            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=True, tz=display_tz))
+            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=True))
         elif can_see_details:
-            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=False, tz=display_tz))
+            result.append(_to_fc(ev, STATUS_CONFIRMED, is_owner=False))
         else:
-            result.append(_to_fc_busy(ev, tz=display_tz))
+            result.append(_to_fc_busy(ev))
 
     parts = (
         EventParticipant.query
@@ -79,11 +78,9 @@ def events_for_user(user_id, viewer_id=None):
         if status_id in (STATUS_REJECTED, STATUS_CANCELLED) and not is_self:
             continue
         if is_self or can_see_details or _viewer_in_event(p.event_id, viewer_id):
-            result.append(_to_fc(
-                p.event, status_id, is_owner=(p.event.created_by == user_id), tz=display_tz,
-            ))
+            result.append(_to_fc(p.event, status_id, is_owner=(p.event.created_by == user_id)))
         else:
-            result.append(_to_fc_busy(p.event, tz=display_tz))
+            result.append(_to_fc_busy(p.event))
 
     if owner:
         if is_self:
@@ -112,13 +109,13 @@ def _tasks_to_fc(user, for_viewer=False):
         .all()
     )
     for task in tasks:
-        local_start, local_end = task_block_local_iso(task)
+        utc_start, utc_end = task_block_utc(task, user)
         bg, border, text = STYLE_TASK
         items.append({
             "id": f"task-{task.id}",
             "title": task.title,
-            "start": local_start,
-            "end": local_end,
+            "start": utc_iso(utc_start),
+            "end": utc_iso(utc_end),
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,
@@ -147,12 +144,12 @@ def _tasks_to_fc_busy(user):
     )
     bg, border, text = STYLE_PERSONAL
     for task in tasks:
-        local_start, local_end = task_block_local_iso(task)
+        utc_start, utc_end = task_block_utc(task, user)
         items.append({
             "id": f"task-{task.id}",
             "title": "Занят",
-            "start": local_start,
-            "end": local_end,
+            "start": utc_iso(utc_start),
+            "end": utc_iso(utc_end),
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,
@@ -168,18 +165,19 @@ def _tasks_to_fc_busy(user):
     return items
 
 
-def _to_fc(ev, status_id, is_owner=False, tz=None):
+def _to_fc(ev, status_id, is_owner=False):
     bg, border, text = event_style(ev, status_id)
     can_cancel = (
         ev.event_type == "meeting"
-        and status_id not in (STATUS_REJECTED, STATUS_CANCELLED)
+        and is_owner
+        and status_id in (STATUS_PENDING, STATUS_CONFIRMED)
     )
-    can_delete = ev.event_type == "meeting"
+    can_delete = ev.event_type == "meeting" and is_owner
     return {
         "id": ev.id,
         "title": ev.title,
-        "start": event_local_iso(ev.start_datetime, tz),
-        "end": event_local_iso(ev.end_datetime, tz),
+        "start": utc_iso(ev.start_datetime),
+        "end": utc_iso(ev.end_datetime),
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,
@@ -197,14 +195,14 @@ def _to_fc(ev, status_id, is_owner=False, tz=None):
     }
 
 
-def _to_fc_busy(ev, tz=None):
+def _to_fc_busy(ev):
     """Личное событие для чужого календаря — только занятость, без деталей."""
     bg, border, text = STYLE_PERSONAL
     return {
         "id": ev.id,
         "title": "Занят",
-        "start": event_local_iso(ev.start_datetime, tz),
-        "end": event_local_iso(ev.end_datetime, tz),
+        "start": utc_iso(ev.start_datetime),
+        "end": utc_iso(ev.end_datetime),
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,

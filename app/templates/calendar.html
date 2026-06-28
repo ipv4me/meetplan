@@ -23,9 +23,9 @@
         <div class="calendar-skeleton-bar w-60"></div>
         <div class="calendar-skeleton-bar flex-grow"></div>
       </div>
-      <div id="calendar" data-timezone="{{ user_timezone }}"></div>
+      <div id="calendar"></div>
     </div>
-    <p class="text-muted small mt-2 mb-0"><i class="bi bi-globe2"></i> Часовой пояс: {{ user_timezone_label }}</p>
+    <p class="text-muted small mt-2 mb-0"><i class="bi bi-globe2"></i> Часовой пояс: <span data-device-tz-label>…</span></p>
     <details class="calendar-legend-details mt-3">
       <summary><i class="bi bi-palette"></i> Легенда календаря</summary>
       <div class="legend mt-2">

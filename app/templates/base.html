@@ -197,6 +197,11 @@
 <script>
   $.ajaxSetup({
     beforeSend: function (xhr, settings) {
+      var tz = "";
+      try {
+        tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      } catch (e) { /* ignore */ }
+      if (tz) xhr.setRequestHeader("X-Client-Timezone", tz);
       if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
         var token = document.querySelector('meta[name="csrf-token"]');
         if (token) xhr.setRequestHeader("X-CSRFToken", token.content);

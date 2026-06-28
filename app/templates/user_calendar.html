@@ -21,10 +21,10 @@
         <div class="calendar-skeleton-bar w-60"></div>
         <div class="calendar-skeleton-bar flex-grow"></div>
       </div>
-      <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}" data-timezone="{{ calendar_timezone }}"></div>
+      <div id="calendar" data-events-url="{{ url_for('main.api_user_events', user_id=viewed_user.id) }}" data-view-user-id="{{ viewed_user.id }}"></div>
     </div>
     <p class="text-muted small mt-2 mb-0"><i class="bi bi-hand-index" aria-hidden="true"></i> Нажмите на свободный слот, чтобы назначить встречу.</p>
-    <p class="text-muted small mt-1 mb-0"><i class="bi bi-globe2" aria-hidden="true"></i> Часовой пояс: {{ calendar_timezone_label }}</p>
+    <p class="text-muted small mt-1 mb-0"><i class="bi bi-globe2" aria-hidden="true"></i> Часовой пояс: <span data-device-tz-label>…</span></p>
     <details class="calendar-legend-details mt-3">
       <summary><i class="bi bi-palette" aria-hidden="true"></i> Легенда календаря</summary>
       <div class="legend mt-2">

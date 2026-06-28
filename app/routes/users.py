@@ -4,7 +4,6 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import User
 from app.helpers import pending_count, friends_query, ensure_friend, USERS_PER_PAGE
-from app.time_utils import user_timezone_name, timezone_label
 from app.friends_service import (
     accept_friendship,
     create_friend_request,
@@ -151,13 +150,10 @@ def api_friend_share_details(friend_id):
 @login_required
 def user_calendar(user_id):
     user = ensure_friend(user_id)
-    tz_name = user_timezone_name(user)
     return render_template(
         "user_calendar.html",
         viewed_user=user,
         pending_count=pending_count(),
-        calendar_timezone=tz_name,
-        calendar_timezone_label=timezone_label(tz_name),
     )
 
 

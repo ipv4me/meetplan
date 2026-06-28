@@ -28,6 +28,12 @@ def pending_count():
     ).count()
 
 
+def client_timezone_name():
+    """IANA-пояс из заголовка AJAX или скрытого поля формы (время устройства)."""
+    raw = (request.headers.get("X-Client-Timezone") or request.form.get("client_timezone") or "").strip()
+    return raw or None
+
+
 def safe_redirect_target(default_endpoint="main.calendar"):
     """Безопасный URL для редиректа после входа (только относительные пути)."""
     from urllib.parse import urlparse

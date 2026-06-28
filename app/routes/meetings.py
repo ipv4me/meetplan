@@ -7,7 +7,7 @@ from app import db
 from app.models import Event, MeetingRequest, EventParticipant
 from app.forms import MeetingForm
 from app.utils import status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED, STATUS_REJECTED
-from app.helpers import pending_count, meeting_user_choices, create_meeting_event, valid_colleague_ids, REQUESTS_PER_PAGE
+from app.helpers import pending_count, meeting_user_choices, create_meeting_event, valid_colleague_ids, REQUESTS_PER_PAGE, client_timezone_name
 from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime, format_dt, utcnow
 from app.services.scheduling import find_conflicts
 from app.routes import bp
@@ -57,6 +57,7 @@ def new_meeting():
             return redirect(url_for("main.new_meeting"))
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
+            client_timezone_name(),
         )
         conflicts = find_conflicts(
             [current_user.id, form.to_user.data], start, end, viewer_id=current_user.id,
@@ -108,6 +109,7 @@ def edit_meeting(event_id):
             return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
+            client_timezone_name(),
         )
         conflicts = find_conflicts(
             [current_user.id, form.to_user.data], start, end,
@@ -139,8 +141,8 @@ def api_check_conflicts():
     data = request.get_json() or {}
     try:
         to_user = int(data["to_user"])
-        start = parse_client_datetime(data["start"], current_user)
-        end = parse_client_datetime(data["end"], current_user)
+        start = parse_client_datetime(data["start"], current_user, client_timezone_name())
+        end = parse_client_datetime(data["end"], current_user, client_timezone_name())
         exclude = data.get("exclude_event_id")
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
@@ -187,8 +189,7 @@ def api_delete_meeting(event_id):
         abort(403)
     if req.from_user_id != current_user.id:
         return jsonify({"ok": False, "error": "Удалить встречу может только организатор"}), 403
-    if req.status_id == STATUS_CONFIRMED:
-        return jsonify({"ok": False, "error": "Сначала отмените подтверждённую встречу"}), 409
+    EventParticipant.query.filter_by(event_id=ev.id).delete()
     db.session.delete(ev)
     db.session.commit()
     return jsonify({"ok": True})
