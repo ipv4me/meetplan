@@ -455,7 +455,7 @@ function renderEventContent(arg) {
     return { html: '<div class="ev-month">' + line + "</div>" };
   }
   if (!arg.view.type.startsWith("timeGrid")) return;
-  const timeStr = arg.timeText || formatListTimeRange(arg.event);
+  const timeStr = formatListTimeRange(arg.event) || arg.timeText;
   return {
     html:
       '<div class="ev-content">' +
@@ -479,8 +479,7 @@ function calendarTz() {
     if (tz && tz !== "local") return tz;
   }
   const el = document.getElementById("calendar");
-  const ds = el && el.dataset.timezone;
-  return ds || undefined;
+  return el ? calendarTimezoneFromEl(el) : undefined;
 }
 
 function formatInCalendarTz(date, options) {
@@ -534,11 +533,16 @@ function renderListEventContent(arg) {
   };
 }
 
+function calendarTimezoneFromEl(el) {
+  const raw = (el && el.dataset.timezone || "").trim();
+  return raw || "Europe/Moscow";
+}
+
 function initCalendar(el) {
   const eventsUrl = el.dataset.eventsUrl || "/api/events";
   const isReadOnly = eventsUrl !== "/api/events";
   const viewUserId = el.dataset.viewUserId || "";
-  const tz = el.dataset.timezone || "local";
+  const tz = calendarTimezoneFromEl(el);
   calendar = new FullCalendar.Calendar(el, {
     locale: "ru",
     timeZone: tz,

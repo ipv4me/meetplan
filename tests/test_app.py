@@ -500,7 +500,7 @@ def test_avatar_friends_isolation(client, app):
     assert client.get(f"/avatars/{bob_id}").status_code == 404
 
 
-def test_calendar_events_utc_format(client, app):
+def test_calendar_events_local_wall_clock(client, app):
     _register(client, "tzuser", "tz@test.com")
     _login(client, "tz@test.com")
     client.post("/api/events", json={
@@ -511,7 +511,32 @@ def test_calendar_events_utc_format(client, app):
     r = client.get("/api/events")
     events = r.get_json()
     assert events
-    assert events[0]["start"].endswith("Z")
+    assert events[0]["start"] == "2026-08-01T10:00:00"
+    assert not events[0]["start"].endswith("Z")
+
+
+def test_meeting_calendar_local_time(client, app):
+    _register(client, "host", "host2@test.com")
+    _register(client, "guest", "guest2@test.com")
+    _make_friends(app, "host2@test.com", "guest2@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest2@test.com").first().id
+
+    _login(client, "host2@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-06-28",
+        "start_time": "20:00",
+        "end_time": "21:00",
+        "title": "Обсуждение проекта",
+        "description": "",
+    }, follow_redirects=True)
+
+    r = client.get("/api/events")
+    meetings = [e for e in r.get_json() if e.get("extendedProps", {}).get("type") == "meeting"]
+    assert len(meetings) == 1
+    assert meetings[0]["start"] == "2026-06-28T20:00:00"
+    assert meetings[0]["end"] == "2026-06-28T21:00:00"
 
 
 def test_task_calendar_matches_due_time(client, app):

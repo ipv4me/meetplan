@@ -27,7 +27,11 @@
 ] %}
 {% set more_endpoints = [
   'main.profile', 'main.settings', 'main.free_time',
-  'main.new_meeting', 'main.admin_users', 'main.edit_meeting', 'main.edit_event'
+  'main.admin_users', 'main.edit_meeting', 'main.edit_event'
+] %}
+{% set hide_fab = request.endpoint in [
+  'main.calendar', 'main.user_calendar', 'main.new_meeting',
+  'main.edit_meeting', 'main.edit_event', 'main.friends', 'main.free_time'
 ] %}
 
 <a href="#main-content" class="skip-link">Перейти к содержимому</a>
@@ -127,7 +131,7 @@
     </button>
   </nav>
 
-  <a href="{{ url_for('main.new_meeting') }}" class="fab d-md-none" aria-label="Создать встречу"><i class="bi bi-plus-lg"></i></a>
+  <a href="{{ url_for('main.new_meeting') }}" class="fab d-md-none{% if hide_fab %} d-none{% endif %}" aria-label="Создать встречу"><i class="bi bi-plus-lg"></i></a>
 </div>
 
 <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
@@ -146,9 +150,6 @@
     <nav class="sidebar-nav">
       <a href="{{ url_for('main.profile') }}" class="nav-link {% if request.endpoint == 'main.profile' %}active{% endif %}">
         <i class="bi bi-person"></i> <span>Профиль</span>
-      </a>
-      <a href="{{ url_for('main.new_meeting') }}" class="nav-link {% if request.endpoint == 'main.new_meeting' %}active{% endif %}">
-        <i class="bi bi-calendar-plus"></i> <span>Новая встреча</span>
       </a>
       <a href="{{ url_for('main.free_time') }}" class="nav-link {% if request.endpoint == 'main.free_time' %}active{% endif %}">
         <i class="bi bi-clock-history"></i> <span>Свободное время</span>

@@ -34,6 +34,19 @@ def utc_iso(dt):
     return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def event_local_iso(dt, tz):
+    """Naive UTC → локальное wall-clock ISO без Z (для FullCalendar с named timeZone)."""
+    if dt is None:
+        return None
+    return utc_to_local(dt, tz).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def user_timezone_name(user):
+    if user is None:
+        return DEFAULT_TIMEZONE
+    return getattr(user, "timezone", None) or DEFAULT_TIMEZONE
+
+
 def local_today(user):
     return utc_to_local(utcnow(), user_timezone(user)).date()
 

@@ -92,7 +92,7 @@
 
 <div class="card content-card">
   <div class="card-body">
-    {{ page_header('Календарь друга, свободные слоты и новая встреча.', url_for('main.new_meeting'), 'Новая встреча', 'bi-calendar-plus', title='Мои друзья') }}
+    {{ page_header('Календарь друга и свободные слоты — встречу можно назначить по клику на свободное время.', title='Мои друзья') }}
 
     {% for u in users %}
     <div class="request-card friend-row" data-id="{{ u.id }}">
@@ -116,9 +116,6 @@
         </a>
         <a href="{{ url_for('main.free_time', user=u.id) }}" class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-clock-history"></i> Слоты
-        </a>
-        <a href="{{ url_for('main.new_meeting', to=u.id) }}" class="btn btn-primary btn-sm">
-          <i class="bi bi-calendar-plus"></i> Встреча
         </a>
       </div>
     </div>
