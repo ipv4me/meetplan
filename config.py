@@ -18,9 +18,14 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or "sqlite:///meetplan.db"
 
-    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
+    # Neon/Render отдают postgres:// или postgresql:// — явно psycopg2 (не psycopg3).
+    if SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace(
-            "postgres://", "postgresql://", 1
+            "postgres://", "postgresql+psycopg2://", 1
+        )
+    elif SQLALCHEMY_DATABASE_URI.startswith("postgresql://"):
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace(
+            "postgresql://", "postgresql+psycopg2://", 1
         )
 
     AVATAR_DIR = os.path.join(BASE_DIR, "app", "static", "uploads", "avatars")
