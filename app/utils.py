@@ -182,6 +182,8 @@ def _to_fc(ev, status_id, viewer_id=None):
         and status_id in (STATUS_PENDING, STATUS_CONFIRMED)
     )
     can_delete = is_owner and ev.event_type in ("meeting", "personal")
+    status_text = status_label(status_id) if ev.event_type == "meeting" else "Личное событие"
+    # флаги дублируем на верхнем уровне — FullCalendar кладёт их в extendedProps
     return {
         "id": ev.id,
         "title": ev.title,
@@ -190,11 +192,19 @@ def _to_fc(ev, status_id, viewer_id=None):
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,
+        "type": ev.event_type,
+        "statusId": status_id,
+        "statusLabel": status_text,
+        "isOwner": is_owner,
+        "canCancel": can_cancel,
+        "canDelete": can_delete,
+        "description": ev.description or "",
+        "accent": border,
         "extendedProps": {
             "description": ev.description or "",
             "type": ev.event_type,
             "statusId": status_id,
-            "statusLabel": status_label(status_id) if ev.event_type == "meeting" else "Личное событие",
+            "statusLabel": status_text,
             "isOwner": is_owner,
             "canCancel": can_cancel,
             "canDelete": can_delete,

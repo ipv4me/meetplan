@@ -757,9 +757,15 @@ function statusClass(type, statusId) {
 
 function showEventDetails(event) {
   activeEvent = event;
-  const props = event.extendedProps;
-  document.getElementById("evTitle").textContent = event.title;
+  const props = event.extendedProps || {};
+  const titleEl = document.getElementById("evTitle");
   const descEl = document.getElementById("evDesc");
+  const timeEl = document.getElementById("evTime");
+  const badge = document.getElementById("evStatus");
+  const modalEl = document.getElementById("eventModal");
+  if (!titleEl || !modalEl) return;
+
+  titleEl.textContent = event.title || "Событие";
   if (props.type === "busy") {
     descEl.textContent = "Участник занят в это время.";
   } else if (props.type === "task") {
@@ -772,17 +778,26 @@ function showEventDetails(event) {
   const timeFmt = { hour: "2-digit", minute: "2-digit", hour12: false };
   const timeStr = formatInCalendarTz(event.start, timeFmt) +
     (event.end ? " – " + formatInCalendarTz(event.end, timeFmt) : "");
-  document.getElementById("evTime").textContent = dateStr + ", " + timeStr;
+  if (timeEl) timeEl.textContent = dateStr + ", " + timeStr;
 
-  const badge = document.getElementById("evStatus");
-  badge.textContent = props.statusLabel || "";
-  badge.className = "badge " + statusClass(props.type, props.statusId);
+  if (badge) {
+    badge.textContent = props.statusLabel || "";
+    badge.className = "badge " + statusClass(props.type, props.statusId);
+  }
 
-  // удаление: только если сервер явно разрешил
+  const isOwner = props.isOwner === true || props.isOwner === "true";
+  const canDelete =
+    props.canDelete === true ||
+    props.canDelete === "true" ||
+    (isOwner && (props.type === "personal" || props.type === "meeting" || props.type === "task"));
+  const canCancel =
+    props.canCancel === true ||
+    props.canCancel === "true";
+  const canEdit = isOwner && props.type !== "task" && props.type !== "busy";
+
   const delBtn = document.getElementById("evDelete");
   if (delBtn) {
-    const canDelete = props.canDelete === true;
-    delBtn.style.display = canDelete ? "inline-block" : "none";
+    delBtn.style.display = canDelete ? "" : "none";
     if (props.type === "meeting") {
       delBtn.innerHTML = '<i class="bi bi-trash"></i> Удалить встречу';
     } else if (props.type === "task") {
@@ -793,21 +808,23 @@ function showEventDetails(event) {
   }
 
   const editBtn = document.getElementById("evEdit");
-  if (editBtn && props.isOwner && props.type !== "task") {
-    editBtn.style.display = "inline-block";
-    editBtn.href = (props.type === "personal" ? "/event/" : "/meeting/") + event.id + "/edit";
-  } else if (editBtn) {
-    editBtn.style.display = "none";
+  if (editBtn) {
+    if (canEdit) {
+      editBtn.style.display = "";
+      editBtn.href = (props.type === "personal" ? "/event/" : "/meeting/") + event.id + "/edit";
+    } else {
+      editBtn.style.display = "none";
+      editBtn.removeAttribute("href");
+    }
   }
 
   const cancelBtn = document.getElementById("evCancel");
   if (cancelBtn) {
-    const canCancel = props.canCancel === true;
-    cancelBtn.style.display = canCancel ? "inline-block" : "none";
+    cancelBtn.style.display = canCancel ? "" : "none";
     cancelBtn.dataset.eventId = event.id;
   }
 
-  bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 /* удаление / отмена события */
@@ -1039,7 +1056,31 @@ function cancelMeeting(eventId, btn) {
       url: "/api/meetings/" + eventId + "/cancel",
       type: "POST",
       success: function () { location.reload(); },
-      error: function () { showErrorToast("Не удалось отменить встречу"); btnBusy(btn, false); },
+      error: function (xhr) {
+        showErrorToast(ajaxErrorMessage(xhr, "Не удалось отменить встречу"));
+        btnBusy(btn, false);
+      },
+    });
+  });
+}
+
+function deleteMeeting(eventId, btn) {
+  confirmAction({
+    title: "Удалить встречу?",
+    message: "Встреча будет удалена полностью у всех участников.",
+    confirmLabel: "Удалить",
+    confirmClass: "btn-danger",
+  }).then(function (ok) {
+    if (!ok) return;
+    btnBusy(btn, true, "Удаляем…");
+    $.ajax({
+      url: "/api/meetings/" + eventId,
+      type: "DELETE",
+      success: function () { location.reload(); },
+      error: function (xhr) {
+        showErrorToast(ajaxErrorMessage(xhr, "Не удалось удалить встречу"));
+        btnBusy(btn, false);
+      },
     });
   });
 }
