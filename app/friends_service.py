@@ -1,6 +1,7 @@
 """Друзья: запросы, принятие, ссылка-приглашение."""
 
 from sqlalchemy import or_, and_
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Friendship, User
@@ -114,7 +115,17 @@ def accept_friendship(requester_id, addressee_id, source="search"):
         source=source,
     )
     db.session.add(row)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        existing = friendship_row(requester_id, addressee_id)
+        if existing:
+            if existing.status != FRIEND_ACCEPTED:
+                existing.status = FRIEND_ACCEPTED
+                db.session.commit()
+            return existing, None
+        return None, "Не удалось добавить в друзья"
     return row, None
 
 
@@ -142,7 +153,19 @@ def create_friend_request(requester_id, addressee_id):
         source="search",
     )
     db.session.add(row)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        existing = friendship_row(requester_id, addressee_id)
+        if existing:
+            if existing.status == FRIEND_ACCEPTED:
+                return None, "Уже в друзьях"
+            if existing.status == FRIEND_PENDING:
+                if existing.requester_id == requester_id:
+                    return None, "Запрос уже отправлен"
+                return None, "Этот пользователь уже отправил вам запрос — примите его"
+        return None, "Не удалось отправить запрос"
     return row, None
 
 
@@ -162,6 +185,18 @@ def cancel_friend_request(friendship_id, user_id):
     row = db.session.get(Friendship, friendship_id)
     if row is None or row.requester_id != user_id or row.status != FRIEND_PENDING:
         return None, "Запрос не найден"
+    db.session.delete(row)
+    db.session.commit()
+    return row, None
+
+
+def remove_friendship(user_id, friend_id):
+    """Удалить принятую дружбу."""
+    if user_id == friend_id:
+        return None, "Нельзя удалить себя"
+    row = friendship_row(user_id, friend_id)
+    if row is None or row.status != FRIEND_ACCEPTED:
+        return None, "Друг не найден"
     db.session.delete(row)
     db.session.commit()
     return row, None

@@ -3,12 +3,19 @@ from flask_login import login_required, current_user
 
 from app import db
 from app.models import User
-from app.helpers import pending_count, friends_query, ensure_friend, USERS_PER_PAGE
+from app.helpers import (
+    pending_count,
+    friends_query,
+    ensure_friend,
+    USERS_PER_PAGE,
+    client_timezone_name,
+)
 from app.friends_service import (
     accept_friendship,
     create_friend_request,
     respond_friend_request,
     cancel_friend_request,
+    remove_friendship,
     suggest_users_for_friend,
     pending_incoming,
     pending_outgoing,
@@ -146,6 +153,15 @@ def api_friend_share_details(friend_id):
     return jsonify({"ok": True, "share": bool(data["share"])})
 
 
+@bp.route("/api/friends/<int:friend_id>", methods=["DELETE"])
+@login_required
+def api_friend_remove(friend_id):
+    _, err = remove_friendship(current_user.id, friend_id)
+    if err:
+        return jsonify({"ok": False, "error": err}), 404
+    return jsonify({"ok": True})
+
+
 @bp.route("/users/<int:user_id>/calendar")
 @login_required
 def user_calendar(user_id):
@@ -167,7 +183,10 @@ def free_time():
     if selected_id:
         selected_user = ensure_friend(selected_id)
         if selected_user:
-            slots = mutual_free_slots(current_user.id, selected_id, viewer=current_user)
+            slots = mutual_free_slots(
+                current_user.id, selected_id, viewer=current_user,
+                client_tz_name=client_timezone_name(),
+            )
     return render_template(
         "free_time.html",
         users=others,
@@ -181,7 +200,13 @@ def free_time():
 @login_required
 def api_free_time(user_id):
     ensure_friend(user_id)
-    return jsonify({"ok": True, "slots": mutual_free_slots(current_user.id, user_id, viewer=current_user)})
+    return jsonify({
+        "ok": True,
+        "slots": mutual_free_slots(
+            current_user.id, user_id, viewer=current_user,
+            client_tz_name=client_timezone_name(),
+        ),
+    })
 
 
 @bp.route("/profile")

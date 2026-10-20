@@ -5,7 +5,7 @@
 {% block content %}
 <div class="card content-card form-card">
   <div class="card-body">
-    {{ page_header('Измените время, тему или описание личного события.') }}
+    {{ page_header('Укажите время, тему и описание личного события.' if form_title.startswith('Новое') else 'Измените время, тему или описание личного события.') }}
     <form method="POST" novalidate>
       {{ form.hidden_tag() }}
       <div class="mb-3">

@@ -20,17 +20,42 @@ RATE_LIMIT_WINDOW = 300
 RATE_LIMIT_MAX = 10
 
 
+TITLE_MAX_LEN = 140
+MAX_EVENT_DURATION_HOURS = 24
+
+
 def pending_count():
+    from flask import g
+
     if not current_user.is_authenticated:
         return 0
-    return MeetingRequest.query.filter_by(
+    cached = getattr(g, "_pending_count", None)
+    if cached is not None:
+        return cached
+    g._pending_count = MeetingRequest.query.filter_by(
         to_user_id=current_user.id, status_id=STATUS_PENDING
     ).count()
+    return g._pending_count
+
+
+def validate_title(title):
+    """Нормализует и проверяет тему события/задачи. Возвращает (ok, value_or_error)."""
+    title = (title or "").strip()
+    if not title:
+        return False, "Введите название"
+    if len(title) > TITLE_MAX_LEN:
+        return False, f"Максимум {TITLE_MAX_LEN} символов"
+    return True, title
 
 
 def client_timezone_name():
-    """IANA-пояс из заголовка AJAX или скрытого поля формы (время устройства)."""
-    raw = (request.headers.get("X-Client-Timezone") or request.form.get("client_timezone") or "").strip()
+    """IANA-пояс из заголовка AJAX, формы или cookie (время устройства)."""
+    raw = (
+        request.headers.get("X-Client-Timezone")
+        or request.form.get("client_timezone")
+        or request.cookies.get("client_timezone")
+        or ""
+    ).strip()
     return raw or None
 
 
@@ -88,8 +113,8 @@ def sync_bootstrap_admins():
     if not emails:
         return
     changed = False
-    for user in User.query.all():
-        if user.email.lower() in emails and user.role != "admin":
+    for user in User.query.filter(User.email.in_(list(emails))).all():
+        if user.role != "admin":
             user.role = "admin"
             changed = True
     if changed:
@@ -155,8 +180,15 @@ def ensure_friend(user_id):
     return user
 
 
-def meeting_user_choices():
-    return [(u.id, u.display_name) for u in friends_query().all()]
+def meeting_user_choices(extra_user_id=None):
+    """Список друзей для SelectField; extra_user_id — текущий приглашённый при редактировании."""
+    choices = [(u.id, u.display_name) for u in friends_query().all()]
+    ids = {c[0] for c in choices}
+    if extra_user_id and extra_user_id not in ids:
+        user = db.session.get(User, extra_user_id)
+        if user is not None:
+            choices.insert(0, (user.id, f"{user.display_name} (не в друзьях)"))
+    return choices
 
 
 # совместимость со старыми импортами
@@ -195,10 +227,7 @@ def _rate_key(scope):
 
 
 def client_ip():
-    """IP клиента с учётом reverse proxy (Render)."""
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """IP клиента. За ProxyFix remote_addr уже корректный — сырой XFF не читаем."""
     return request.remote_addr or "unknown"
 
 
@@ -281,6 +310,8 @@ def create_meeting_event(creator_id, to_user_id, title, description, start, end)
         status_id=STATUS_PENDING,
     )
     db.session.add(req)
-    db.session.add(EventParticipant(event_id=ev.id, user_id=creator_id, status_id=2))
+    from app.utils import STATUS_CONFIRMED
+
+    db.session.add(EventParticipant(event_id=ev.id, user_id=creator_id, status_id=STATUS_CONFIRMED))
     db.session.add(EventParticipant(event_id=ev.id, user_id=to_user_id, status_id=STATUS_PENDING))
     return ev

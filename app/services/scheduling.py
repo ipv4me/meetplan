@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, time as dt_time
 from app import db
 from app.models import Event, EventParticipant, Task, MeetingRequest, User
 from app.friends_service import friend_shares_details_with
-from app.utils import STATUS_REJECTED, STATUS_CANCELLED
-from app.time_utils import local_to_utc, user_timezone, local_today, utcnow, format_dt
+from app.utils import STATUS_PENDING, STATUS_CONFIRMED
+from app.time_utils import local_to_utc, effective_timezone, utc_to_local, utcnow, format_dt
 
 WORK_START = dt_time(7, 0)
 WORK_END = dt_time(22, 0)
@@ -18,10 +18,10 @@ def _overlaps(a_start, a_end, b_start, b_end):
 
 
 def _active_meeting_status_ids():
-    return [1, 2]  # pending, confirmed
+    return [STATUS_PENDING, STATUS_CONFIRMED]
 
 
-def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
+def busy_blocks(user_id, range_start, range_end, exclude_event_id=None, client_tz_name=None):
     """Интервалы занятости пользователя в заданном диапазоне (UTC)."""
     blocks = []
     user = db.session.get(User, user_id)
@@ -76,7 +76,7 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
             .all()
         )
         for task in tasks:
-            start, end = task_block_utc(task, user)
+            start, end = task_block_utc(task, user, client_tz_name)
             if _overlaps(start, end, range_start, range_end):
                 blocks.append({
                     "user_id": user_id,
@@ -89,7 +89,7 @@ def busy_blocks(user_id, range_start, range_end, exclude_event_id=None):
     return blocks
 
 
-def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
+def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None, client_tz_name=None):
     """Конфликты расписания для списка пользователей."""
     from app.utils import _viewer_in_event
 
@@ -98,7 +98,7 @@ def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
         user = db.session.get(User, uid)
         if user is None:
             continue
-        for block in busy_blocks(uid, start, end, exclude_event_id):
+        for block in busy_blocks(uid, start, end, exclude_event_id, client_tz_name=client_tz_name):
             if _overlaps(block["start"], block["end"], start, end):
                 title = block["title"]
                 kind = block["kind"]
@@ -126,10 +126,17 @@ def find_conflicts(user_ids, start, end, exclude_event_id=None, viewer_id=None):
     return conflicts
 
 
-def mutual_free_slots(user_a_id, user_b_id, days=7, viewer=None):
-    """Свободные слоты для двух пользователей (границы дня — в TZ viewer)."""
-    tz = user_timezone(viewer)
-    today = local_today(viewer) if viewer else utcnow().date()
+def mutual_free_slots(user_a_id, user_b_id, days=7, viewer=None, client_tz_name=None):
+    """Свободные слоты для двух пользователей (границы дня — в TZ устройства/viewer)."""
+    tz = effective_timezone(viewer, client_tz_name)
+    now_utc = utcnow()
+    today = utc_to_local(now_utc, tz).date()
+    range_start = local_to_utc(datetime.combine(today, WORK_START), tz)
+    range_end = local_to_utc(datetime.combine(today + timedelta(days=days), WORK_END), tz)
+
+    blocks_a = busy_blocks(user_a_id, range_start, range_end, client_tz_name=client_tz_name)
+    blocks_b = busy_blocks(user_b_id, range_start, range_end, client_tz_name=client_tz_name)
+
     slots = []
     day = today
     end_day = today + timedelta(days=days)
@@ -141,16 +148,16 @@ def mutual_free_slots(user_a_id, user_b_id, days=7, viewer=None):
             slot_end_local = slot_start_local + timedelta(minutes=SLOT_MINUTES)
             slot_start = local_to_utc(slot_start_local, tz)
             slot_end = local_to_utc(slot_end_local, tz)
-            if not find_conflicts([user_a_id], slot_start, slot_end) and not find_conflicts(
-                [user_b_id], slot_start, slot_end
-            ):
+            busy_a = any(_overlaps(b["start"], b["end"], slot_start, slot_end) for b in blocks_a)
+            busy_b = any(_overlaps(b["start"], b["end"], slot_start, slot_end) for b in blocks_b)
+            if not busy_a and not busy_b:
                 slots.append({
                     "date": day.isoformat(),
                     "start": slot_start_local.strftime("%H:%M"),
                     "end": slot_end_local.strftime("%H:%M"),
-                    "label": format_dt(slot_start, viewer, "%d.%m.%Y %H:%M")
+                    "label": format_dt(slot_start, viewer, "%d.%m.%Y %H:%M", client_tz_name)
                     + " – "
-                    + format_dt(slot_end, viewer, "%H:%M"),
+                    + format_dt(slot_end, viewer, "%H:%M", client_tz_name),
                 })
             slot_start_local = slot_end_local
         day += timedelta(days=1)

@@ -1,5 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
+from sqlalchemy import func
 from wtforms import (
     StringField, PasswordField, SubmitField, TextAreaField,
     SelectField, DateField, TimeField, BooleanField,
@@ -14,7 +15,7 @@ from app.models import User
 class RegistrationForm(FlaskForm):
     username = StringField("Имя", validators=[DataRequired(), Length(2, 64)])
     email = StringField("Email", validators=[DataRequired(), Email()])
-    password = PasswordField("Пароль", validators=[DataRequired(), Length(min=6)])
+    password = PasswordField("Пароль", validators=[DataRequired(), Length(min=8)])
     password2 = PasswordField(
         "Повторите пароль",
         validators=[DataRequired(), EqualTo("password", message="Пароли не совпадают")],
@@ -22,7 +23,9 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField("Зарегистрироваться")
 
     def validate_username(self, field):
-        if User.query.filter_by(username=field.data).first():
+        name = field.data.strip()
+        field.data = name
+        if User.query.filter(func.lower(User.username) == name.lower()).first():
             raise ValidationError("Это имя уже занято.")
 
     def validate_email(self, field):
@@ -52,7 +55,7 @@ class AvatarForm(FlaskForm):
 
 class ChangePasswordForm(FlaskForm):
     old_password = PasswordField("Текущий пароль", validators=[DataRequired()])
-    new_password = PasswordField("Новый пароль", validators=[DataRequired(), Length(min=6)])
+    new_password = PasswordField("Новый пароль", validators=[DataRequired(), Length(min=8)])
     new_password2 = PasswordField(
         "Повторите новый пароль",
         validators=[DataRequired(), EqualTo("new_password", message="Пароли не совпадают")],

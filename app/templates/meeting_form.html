@@ -6,7 +6,11 @@
 <div class="card content-card form-card">
   <div class="card-body">
     {% if has_friends %}
-    {{ page_header('Укажите друга, время и тему — он получит запрос на подтверждение.') }}
+    {{ page_header(
+      'Измените время, тему или участника. Если поменяете расписание — запрос уйдёт повторно.'
+      if exclude_event_id else
+      'Укажите друга, время и тему — он получит запрос на подтверждение.'
+    ) }}
     <form method="POST" novalidate class="meeting-form"{% if exclude_event_id %} data-exclude-event-id="{{ exclude_event_id }}"{% endif %}>
       {{ form.hidden_tag() }}
       <div id="conflictWarn" class="alert alert-warning small py-2 d-none mb-3"></div>

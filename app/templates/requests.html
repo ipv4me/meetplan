@@ -34,6 +34,10 @@
             <button class="btn btn-success btn-sm" onclick="respondRequest({{ r.id }}, 'confirm', false, this)">Подтвердить</button>
             <button class="btn btn-outline-danger btn-sm" onclick="respondRequest({{ r.id }}, 'reject', false, this)">Отклонить</button>
           </div>
+          {% elif r.status_id == 2 %}
+          <div class="request-actions">
+            <button class="btn btn-outline-secondary btn-sm" onclick="cancelMeeting({{ r.event_id }}, this)">Отменить</button>
+          </div>
           {% endif %}
         </div>
         {% else %}

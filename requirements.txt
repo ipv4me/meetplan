@@ -6,6 +6,6 @@ Flask-Migrate==4.0.7
 email-validator==2.2.0
 Werkzeug==3.0.3
 gunicorn==22.0.0
-psycopg2-binary
+psycopg2-binary==2.9.12
 Pillow==10.4.0
-pytest
+pytest==9.1.1

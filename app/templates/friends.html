@@ -117,6 +117,9 @@
         <a href="{{ url_for('main.free_time', user=u.id) }}" class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-clock-history"></i> Слоты
         </a>
+        <button type="button" class="btn btn-outline-danger btn-sm friend-remove-btn" data-id="{{ u.id }}" data-name="{{ u.username }}">
+          Удалить
+        </button>
       </div>
     </div>
     {% else %}
@@ -139,6 +142,37 @@
     input.select();
     navigator.clipboard.writeText(input.value).then(function () {
       showSuccessToast("Ссылка скопирована");
+    }).catch(function () {
+      showErrorToast("Не удалось скопировать ссылку");
+    });
+  });
+
+  document.querySelectorAll(".friend-remove-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const id = btn.dataset.id;
+      const name = btn.dataset.name || "друга";
+      confirmAction({
+        title: "Удалить из друзей?",
+        message: name + " больше не увидит ваш календарь.",
+        confirmLabel: "Удалить",
+        confirmClass: "btn-danger",
+      }).then(function (ok) {
+        if (!ok) return;
+        btnBusy(btn, true, "…");
+        $.ajax({
+          url: "/api/friends/" + id,
+          type: "DELETE",
+          success: function () {
+            const row = btn.closest(".friend-row");
+            if (row) row.remove();
+            showSuccessToast("Удалено из друзей");
+          },
+          error: function (xhr) {
+            showErrorToast((xhr.responseJSON && xhr.responseJSON.error) || "Не удалось удалить");
+            btnBusy(btn, false);
+          },
+        });
+      });
     });
   });
 

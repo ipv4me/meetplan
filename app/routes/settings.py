@@ -5,7 +5,7 @@ from app import db
 from app.models import User
 from app.forms import ChangePasswordForm, AvatarForm, TimezoneForm
 from app.helpers import (
-    pending_count, MAX_AVATAR_BYTES, guess_image_mimetype,
+    pending_count, MAX_AVATAR_BYTES,
     remove_legacy_avatar_file, validate_avatar_image, ensure_viewable_user,
 )
 from app.time_utils import TIMEZONE_CHOICES

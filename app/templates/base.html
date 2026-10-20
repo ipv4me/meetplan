@@ -40,7 +40,6 @@
   {% set side_nav = [
     ('main.calendar', 'bi-calendar3', 'Календарь', false),
     ('main.tasks', 'bi-check2-square', 'Мои дела', false),
-    ('main.new_meeting', 'bi-calendar-plus', 'Новая встреча', false),
     ('main.requests_page', 'bi-inbox', 'Запросы', true),
     ('main.friends', 'bi-people', 'Друзья', false),
     ('main.free_time', 'bi-clock-history', 'Свободное время', false),
@@ -59,7 +58,7 @@
     </div>
     <nav class="sidebar-nav">
       {% for endpoint, icon, label, badge in side_nav %}
-      {% set nav_active = request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') or (endpoint == 'main.new_meeting' and request.endpoint in ['main.edit_meeting', 'main.edit_event']) %}
+      {% set nav_active = request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') or (endpoint == 'main.calendar' and request.endpoint in ['main.edit_meeting', 'main.new_meeting']) or (endpoint == 'main.tasks' and request.endpoint == 'main.edit_event') %}
       <a href="{{ url_for(endpoint) }}" class="nav-link {% if nav_active %}active{% endif %}">
         <i class="bi {{ icon }}"></i> <span>{{ label }}</span>
         {% if badge and pending_badge %}<span class="badge bg-danger ms-auto">{{ pending_badge }}</span>{% endif %}
@@ -119,7 +118,7 @@
     <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
       <span class="position-relative">
         <i class="bi {{ icon }}"></i>
-        {% if badge and pending_badge %}<span class="dot">{{ pending_badge }}</span>{% endif %}
+        {% if badge %}<span class="dot"{% if not pending_badge %} style="display:none"{% endif %}>{{ pending_badge or '' }}</span>{% endif %}
       </span>
       <small>{{ label }}</small>
     </a>
@@ -144,7 +143,7 @@
       {{ avatar(current_user) }}
       <div class="sidebar-user-info">
         <div class="name">{{ current_user.username }}</div>
-        <div class="email">{{ current_user.email }}</div>
+        <div class="email text-break">{{ current_user.email }}</div>
       </div>
     </div>
     <nav class="sidebar-nav">

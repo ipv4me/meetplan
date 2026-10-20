@@ -19,7 +19,7 @@
   </div>
   <div class="mb-3">
     {{ form.password.label(class="form-label") }}
-    {{ form.password(class="form-control") }}
+    {{ form.password(class="form-control", placeholder="Не короче 8 символов") }}
     {% for e in form.password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
   </div>
   <div class="mb-3">

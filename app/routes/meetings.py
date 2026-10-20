@@ -2,24 +2,47 @@ from datetime import datetime, timedelta
 
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.models import Event, MeetingRequest, EventParticipant
 from app.forms import MeetingForm
 from app.utils import status_label, STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED, STATUS_REJECTED
-from app.helpers import pending_count, meeting_user_choices, create_meeting_event, valid_colleague_ids, REQUESTS_PER_PAGE, client_timezone_name
-from app.time_utils import combine_user_meeting, utc_to_local, user_timezone, parse_client_datetime, format_dt, utcnow
+from app.helpers import (
+    pending_count,
+    meeting_user_choices,
+    create_meeting_event,
+    valid_colleague_ids,
+    REQUESTS_PER_PAGE,
+    client_timezone_name,
+)
+from app.time_utils import (
+    combine_user_meeting,
+    utc_to_local,
+    parse_client_datetime,
+    format_dt,
+    utcnow,
+    effective_timezone,
+    duration_ok,
+)
 from app.services.scheduling import find_conflicts
 from app.routes import bp
 
 
-def _render_meeting_form(form, title, exclude_event_id=None):
+def _apply_overnight(start, end):
+    """Если конец ≤ начала — считаем ночной слот (+1 день)."""
+    if end <= start:
+        end = end + timedelta(days=1)
+    return start, end
+
+
+def _render_meeting_form(form, title, exclude_event_id=None, force_form=False):
     return render_template(
         "meeting_form.html",
         form=form,
         form_title=title,
         exclude_event_id=exclude_event_id,
-        has_friends=bool(meeting_user_choices()),
+        has_friends=bool(form.to_user.choices) or force_form,
     )
 
 
@@ -59,16 +82,17 @@ def new_meeting():
             form.date.data, form.start_time.data, form.end_time.data, current_user,
             client_timezone_name(),
         )
+        if not duration_ok(start, end):
+            flash("Длительность встречи не больше 24 часов.", "danger")
+            return _render_meeting_form(form, "Создать встречу")
         conflicts = find_conflicts(
-            [current_user.id, form.to_user.data], start, end, viewer_id=current_user.id,
+            [current_user.id, form.to_user.data], start, end,
+            viewer_id=current_user.id, client_tz_name=client_timezone_name(),
         )
         if conflicts:
             names = ", ".join({c["username"] for c in conflicts})
             flash(f"Конфликт расписания у: {names}. Выберите другое время.", "danger")
-            return render_template(
-                "meeting_form.html", form=form, form_title="Создать встречу",
-                has_friends=bool(meeting_user_choices()),
-            )
+            return _render_meeting_form(form, "Создать встречу")
         create_meeting_event(
             current_user.id, form.to_user.data, form.title.data,
             form.description.data, start, end,
@@ -88,13 +112,14 @@ def edit_meeting(event_id):
     ev = db.session.get(Event, event_id)
     if ev is None or ev.created_by != current_user.id or ev.event_type != "meeting":
         abort(404)
+    old_to = ev.request.to_user_id if ev.request else None
     form = MeetingForm()
-    form.to_user.choices = meeting_user_choices()
+    form.to_user.choices = meeting_user_choices(extra_user_id=old_to)
     if request.method == "GET":
-        tz = user_timezone(current_user)
+        tz = effective_timezone(current_user, client_timezone_name())
         start_local = utc_to_local(ev.start_datetime, tz)
         end_local = utc_to_local(ev.end_datetime, tz)
-        form.to_user.data = ev.request.to_user_id if ev.request else None
+        form.to_user.data = old_to
         form.title.data = ev.title
         form.description.data = ev.description
         form.date.data = start_local.date()
@@ -103,36 +128,60 @@ def edit_meeting(event_id):
     if form.validate_on_submit():
         if form.to_user.data == current_user.id:
             flash("Нельзя назначить встречу самому себе.", "danger")
-            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
-        if form.to_user.data not in valid_colleague_ids():
-            flash("Выберите друга из списка.", "danger")
-            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
+            return _render_meeting_form(
+                form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
+            )
         start, end = combine_user_meeting(
             form.date.data, form.start_time.data, form.end_time.data, current_user,
             client_timezone_name(),
         )
-        conflicts = find_conflicts(
-            [current_user.id, form.to_user.data], start, end,
-            exclude_event_id=ev.id, viewer_id=current_user.id,
+        if not duration_ok(start, end):
+            flash("Длительность встречи не больше 24 часов.", "danger")
+            return _render_meeting_form(
+                form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
+            )
+        schedule_changed = (
+            ev.start_datetime != start
+            or ev.end_datetime != end
+            or form.to_user.data != old_to
         )
-        if conflicts:
-            names = ", ".join({c["username"] for c in conflicts})
-            flash(f"Конфликт расписания у: {names}.", "danger")
-            return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
+        friend_ids = valid_colleague_ids()
+        if schedule_changed and form.to_user.data not in friend_ids:
+            flash("Чтобы изменить время или участника, человек должен быть в друзьях.", "danger")
+            return _render_meeting_form(
+                form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
+            )
+        if schedule_changed:
+            conflicts = find_conflicts(
+                [current_user.id, form.to_user.data], start, end,
+                exclude_event_id=ev.id, viewer_id=current_user.id,
+                client_tz_name=client_timezone_name(),
+            )
+            if conflicts:
+                names = ", ".join({c["username"] for c in conflicts})
+                flash(f"Конфликт расписания у: {names}.", "danger")
+                return _render_meeting_form(
+                    form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
+                )
         ev.title = form.title.data
         ev.description = form.description.data
         ev.start_datetime = start
         ev.end_datetime = end
-        if ev.request:
-            ev.request.to_user_id = form.to_user.data
-            ev.request.status_id = STATUS_PENDING
-        EventParticipant.query.filter_by(event_id=ev.id).delete()
-        db.session.add(EventParticipant(event_id=ev.id, user_id=current_user.id, status_id=STATUS_CONFIRMED))
-        db.session.add(EventParticipant(event_id=ev.id, user_id=form.to_user.data, status_id=STATUS_PENDING))
+        if schedule_changed:
+            if ev.request:
+                ev.request.to_user_id = form.to_user.data
+                ev.request.status_id = STATUS_PENDING
+            EventParticipant.query.filter_by(event_id=ev.id).delete()
+            db.session.add(EventParticipant(event_id=ev.id, user_id=current_user.id, status_id=STATUS_CONFIRMED))
+            db.session.add(EventParticipant(event_id=ev.id, user_id=form.to_user.data, status_id=STATUS_PENDING))
+            flash("Встреча обновлена, запрос отправлен повторно.", "success")
+        else:
+            flash("Встреча обновлена.", "success")
         db.session.commit()
-        flash("Встреча обновлена, запрос отправлен повторно.", "success")
         return redirect(url_for("main.calendar"))
-    return _render_meeting_form(form, "Редактировать встречу", exclude_event_id=ev.id)
+    return _render_meeting_form(
+        form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
+    )
 
 
 @bp.route("/api/meetings/check-conflicts", methods=["POST"])
@@ -143,10 +192,11 @@ def api_check_conflicts():
         to_user = int(data["to_user"])
         start = parse_client_datetime(data["start"], current_user, client_timezone_name())
         end = parse_client_datetime(data["end"], current_user, client_timezone_name())
+        start, end = _apply_overnight(start, end)
         exclude = data.get("exclude_event_id")
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
-    if end <= start:
+    if not duration_ok(start, end):
         return jsonify({"ok": False, "error": "Некорректный интервал"}), 400
     if to_user == current_user.id:
         return jsonify({"ok": False, "error": "Нельзя назначить встречу самому себе"}), 400
@@ -156,6 +206,7 @@ def api_check_conflicts():
         [current_user.id, to_user], start, end,
         exclude_event_id=int(exclude) if exclude else None,
         viewer_id=current_user.id,
+        client_tz_name=client_timezone_name(),
     )
     return jsonify({"ok": True, "conflicts": conflicts})
 
@@ -240,11 +291,11 @@ def api_request_action(req_id, action):
         abort(400)
 
     req.status_id = new_status
-    part = EventParticipant.query.filter_by(
-        event_id=req.event_id, user_id=current_user.id
-    ).first()
-    if part:
-        part.status_id = new_status
+    for part in EventParticipant.query.filter_by(event_id=req.event_id).all():
+        if part.user_id == current_user.id:
+            part.status_id = new_status
+        elif new_status == STATUS_REJECTED and part.user_id == req.from_user_id:
+            part.status_id = STATUS_REJECTED
     db.session.commit()
     return jsonify({"ok": True, "status": new_status, "label": status_label(new_status)})
 
@@ -260,6 +311,10 @@ def notifications():
 def api_notifications():
     pending = (
         MeetingRequest.query
+        .options(
+            joinedload(MeetingRequest.from_user),
+            joinedload(MeetingRequest.event),
+        )
         .filter_by(to_user_id=current_user.id, status_id=STATUS_PENDING)
         .order_by(MeetingRequest.created_at.desc())
         .all()
@@ -269,7 +324,7 @@ def api_notifications():
             "id": r.id,
             "from": r.from_user.username,
             "title": r.event.title,
-            "when": format_dt(r.event.start_datetime, current_user),
+            "when": format_dt(r.event.start_datetime, current_user, client_tz_name=client_timezone_name()),
         }
         for r in pending
     ]

@@ -162,7 +162,7 @@ def test_bootstrap_admin_and_promote(client, app):
     )
     assert r.get_json()["ok"] is True
     with app.app_context():
-        assert User.query.get(member_id).is_admin
+        assert db.session.get(User, member_id).is_admin
 
     r = client.post(
         f"/api/admin/users/{owner_id}/role",
@@ -740,4 +740,177 @@ def test_meeting_delete_confirmed_forbidden(client, app):
     with app.app_context():
         assert MeetingRequest.query.count() == 0
         assert Event.query.count() == 0
+
+
+def test_parse_client_datetime_respects_offset(app):
+    from app.time_utils import parse_client_datetime
+    with app.app_context():
+        user = User(username="tz", email="tzparse@test.com", timezone="Europe/Moscow")
+        user.set_password("x")
+        db.session.add(user)
+        db.session.commit()
+        dt = parse_client_datetime("2026-08-01T10:00:00+00:00", user, "Europe/Moscow")
+        assert dt.isoformat() == "2026-08-01T10:00:00"
+
+
+def test_friend_calendar_hides_owner_actions(client, app):
+    _register(client, "alice", "alice_own@test.com")
+    _register(client, "bob", "bob_own@test.com")
+    _make_friends(app, "alice_own@test.com", "bob_own@test.com")
+    with app.app_context():
+        bob_id = User.query.filter_by(email="bob_own@test.com").first().id
+    _login(client, "bob_own@test.com")
+    client.post(
+        "/api/events",
+        json={
+            "title": "Bob private",
+            "start": "2026-08-02T10:00:00",
+            "end": "2026-08-02T11:00:00",
+        },
+        headers={"X-Client-Timezone": "UTC"},
+    )
+    _login(client, "alice_own@test.com")
+    r = client.get(f"/api/users/{bob_id}/events")
+    personal = [e for e in r.get_json() if e.get("extendedProps", {}).get("type") == "personal"]
+    assert personal
+    props = personal[0]["extendedProps"]
+    assert props["isOwner"] is False
+    assert props["canDelete"] is False
+
+
+def test_invitee_can_cancel_flag_on_own_calendar(client, app):
+    _register(client, "host", "host_c@test.com")
+    _register(client, "guest", "guest_c@test.com")
+    _make_friends(app, "host_c@test.com", "guest_c@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest_c@test.com").first().id
+    _login(client, "host_c@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-07-11",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Sync",
+        "description": "",
+        "client_timezone": "UTC",
+    }, follow_redirects=True)
+    _login(client, "guest_c@test.com")
+    with app.app_context():
+        req = MeetingRequest.query.filter_by(to_user_id=gid).first()
+        client.post(f"/api/requests/{req.id}/confirm")
+    r = client.get("/api/events")
+    meetings = [e for e in r.get_json() if e.get("extendedProps", {}).get("type") == "meeting"]
+    assert meetings
+    assert meetings[0]["extendedProps"]["canCancel"] is True
+    assert meetings[0]["extendedProps"]["canDelete"] is False
+    assert meetings[0]["extendedProps"]["isOwner"] is False
+
+
+def test_overnight_conflict_check(client, app):
+    _register(client, "alice_n", "a_night@test.com")
+    _register(client, "bob_n", "b_night@test.com")
+    _make_friends(app, "a_night@test.com", "b_night@test.com")
+    with app.app_context():
+        bid = User.query.filter_by(email="b_night@test.com").first().id
+    _login(client, "a_night@test.com")
+    r = client.post(
+        "/api/meetings/check-conflicts",
+        json={
+            "to_user": bid,
+            "start": "2026-08-03T23:00:00",
+            "end": "2026-08-03T00:00:00",
+        },
+        headers={"X-Client-Timezone": "UTC"},
+    )
+    assert r.status_code == 200
+    assert r.get_json()["ok"] is True
+
+
+def test_remove_friend(client, app):
+    _register(client, "alice_rm", "a_rm@test.com")
+    _register(client, "bob_rm", "b_rm@test.com")
+    _make_friends(app, "a_rm@test.com", "b_rm@test.com")
+    with app.app_context():
+        bid = User.query.filter_by(email="b_rm@test.com").first().id
+    _login(client, "a_rm@test.com")
+    r = client.delete(f"/api/friends/{bid}")
+    assert r.get_json()["ok"] is True
+    assert client.get(f"/users/{bid}/calendar").status_code == 404
+
+
+def test_api_title_too_long(client, app):
+    _register(client, "longt", "longt@test.com")
+    _login(client, "longt@test.com")
+    r = client.post("/api/events", json={
+        "title": "x" * 141,
+        "start": "2026-08-04T10:00:00",
+        "end": "2026-08-04T11:00:00",
+    }, headers={"X-Client-Timezone": "UTC"})
+    assert r.status_code == 400
+    r = client.post("/api/tasks", json={"title": "y" * 141})
+    assert r.status_code == 400
+
+
+def test_username_case_insensitive(client, app):
+    _register(client, "CaseUser", "case1@test.com")
+    client.post("/register", data={
+        "username": "caseuser",
+        "email": "case2@test.com",
+        "password": "secret123",
+        "password2": "secret123",
+    }, follow_redirects=True)
+    with app.app_context():
+        assert User.query.count() == 1
+
+
+def test_multiday_event_rejected(client, app):
+    _register(client, "mduser", "md@test.com")
+    _login(client, "md@test.com")
+    r = client.post(
+        "/api/events",
+        json={
+            "title": "Too long",
+            "start": "2026-08-04T10:00:00Z",
+            "end": "2026-08-06T11:00:00Z",
+        },
+        headers={"X-Client-Timezone": "UTC"},
+    )
+    assert r.status_code == 400
+
+
+def test_edit_meeting_title_keeps_confirmed(client, app):
+    _register(client, "host", "host_e@test.com")
+    _register(client, "guest", "guest_e@test.com")
+    _make_friends(app, "host_e@test.com", "guest_e@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest_e@test.com").first().id
+    _login(client, "host_e@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-07-12",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Old",
+        "description": "",
+        "client_timezone": "UTC",
+    }, follow_redirects=True)
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        eid, rid = req.event_id, req.id
+    _login(client, "guest_e@test.com")
+    assert client.post(f"/api/requests/{rid}/confirm").get_json()["ok"] is True
+    _login(client, "host_e@test.com")
+    client.post(f"/meeting/{eid}/edit", data={
+        "to_user": gid,
+        "date": "2026-07-12",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "New title",
+        "description": "",
+        "client_timezone": "UTC",
+    }, follow_redirects=True)
+    with app.app_context():
+        req = MeetingRequest.query.first()
+        assert req.status_id == 2
+        assert req.event.title == "New title"
 

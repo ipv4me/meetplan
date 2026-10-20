@@ -138,7 +138,7 @@ class MeetingRequest(db.Model):
     __tablename__ = "meeting_requests"
 
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("events.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("events.id"), nullable=False, unique=True)
     from_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     to_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     status_id = db.Column(db.Integer, db.ForeignKey("statuses.id"), nullable=False, default=1)
@@ -162,6 +162,10 @@ class EventParticipant(db.Model):
 
     user = db.relationship("User")
     status = db.relationship("Status")
+
+    __table_args__ = (
+        db.UniqueConstraint("event_id", "user_id", name="uq_event_participant"),
+    )
 
 
 class Task(db.Model):

@@ -33,10 +33,11 @@ def create_app(config_class=Config):
     @app.template_filter("user_dt")
     def user_dt_filter(dt, fmt="%d.%m.%Y в %H:%M"):
         from flask_login import current_user
+        from app.helpers import client_timezone_name
         if not dt:
             return ""
         user = current_user if current_user.is_authenticated else None
-        return format_dt(dt, user, fmt)
+        return format_dt(dt, user, fmt, client_timezone_name())
 
     if (
         not app.config.get("TESTING")
@@ -62,6 +63,7 @@ def create_app(config_class=Config):
         ensure_schema()
         seed_statuses()
         seed_organizations()
+        assign_default_organization()
         sync_bootstrap_admins()
         ensure_invite_tokens()
 
@@ -108,6 +110,7 @@ def ensure_schema():
         if "invite_token" not in cols:
             db.session.execute(text("ALTER TABLE users ADD COLUMN invite_token VARCHAR(32)"))
             db.session.commit()
+        _ensure_unique_index("users", "ix_users_invite_token", "(invite_token)")
         cols = [c["name"] for c in inspector.get_columns("users")]
         if "hide_calendar_details_from_friends" not in cols:
             db.session.execute(text(
@@ -133,12 +136,61 @@ def ensure_schema():
                 f"BOOLEAN DEFAULT {bool_default(True)} NOT NULL"
             ))
             db.session.commit()
+        _ensure_friendship_unordered_unique()
     if "tasks" in inspector.get_table_names():
         cols = [c["name"] for c in inspector.get_columns("tasks")]
         if "due_time" not in cols:
             db.session.execute(text("ALTER TABLE tasks ADD COLUMN due_time TIME"))
             db.session.commit()
+    if "meeting_requests" in inspector.get_table_names():
+        _ensure_unique_index(
+            "meeting_requests", "uq_meeting_requests_event_id", "(event_id)"
+        )
+    if "event_participants" in inspector.get_table_names():
+        _ensure_unique_index(
+            "event_participants", "uq_event_participant", "(event_id, user_id)"
+        )
     migrate_legacy_avatars()
+
+
+def _index_exists(table, name):
+    from sqlalchemy import inspect
+
+    return any(idx.get("name") == name for idx in inspect(db.engine).get_indexes(table))
+
+
+def _ensure_unique_index(table, name, columns_sql):
+    from sqlalchemy import text
+
+    if _index_exists(table, name):
+        return
+    try:
+        db.session.execute(text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {table} {columns_sql}"
+        ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _ensure_friendship_unordered_unique():
+    from sqlalchemy import text
+
+    if _index_exists("friendships", "uq_friendship_unordered"):
+        return
+    dialect = db.engine.dialect.name
+    expr = (
+        "(LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id))"
+        if dialect == "postgresql"
+        else "(min(requester_id, addressee_id), max(requester_id, addressee_id))"
+    )
+    try:
+        db.session.execute(text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_unordered ON friendships {expr}"
+        ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def migrate_legacy_avatars():

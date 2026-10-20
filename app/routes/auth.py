@@ -26,6 +26,7 @@ def register():
             username=form.username.data.strip(),
             email=email,
             role="member",
+            organization_id=1,
             timezone=current_app.config.get("DEFAULT_USER_TIMEZONE", "Europe/Moscow"),
         )
         user.set_password(form.password.data)

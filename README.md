@@ -50,10 +50,10 @@ python run.py
    - `FLASK_ENV` = `production`
    - `DATABASE_URL` — строка подключения Neon (с `?sslmode=require`)
    - `FLASK_APP` = `run.py`
-3. **Pre-Deploy Command** (опционально): `flask db upgrade`
+3. **Release Command** (Procfile уже задаёт): `flask db upgrade` — обязателен на проде.
 4. Postgres на Render **не нужен**, если используете Neon.
 
-При первом деплое таблицы создаются автоматически, если БД пустая.
+При первом деплое пустая БД получает таблицы через `create_all` + `ensure_schema`; дальше схему держат Alembic-миграции.
 
 ## Production
 

@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 
 from app import db
 from app.models import Task
-from app.helpers import pending_count
+from app.helpers import pending_count, validate_title
 from app.routes import bp
 
 TASK_PALETTE = ["#f59e0b", "#3b82f6", "#22c55e", "#8b5cf6"]
@@ -34,9 +34,9 @@ def tasks():
 @login_required
 def api_create_task():
     data = request.get_json() or {}
-    title = (data.get("title") or "").strip()
-    if not title:
-        return jsonify({"ok": False, "error": "Введите название"}), 400
+    ok, title = validate_title(data.get("title"))
+    if not ok:
+        return jsonify({"ok": False, "error": title}), 400
 
     due = None
     if data.get("due_date"):
@@ -83,10 +83,13 @@ def api_update_task(task_id):
     if task is None or task.user_id != current_user.id:
         abort(404)
     data = request.get_json() or {}
-    title = (data.get("title") or task.title).strip()
-    if not title:
-        return jsonify({"ok": False, "error": "Введите название"}), 400
-    task.title = title
+    if "title" in data:
+        ok, title = validate_title(data.get("title"))
+        if not ok:
+            return jsonify({"ok": False, "error": title}), 400
+        task.title = title
+    else:
+        title = task.title
     if "due_date" in data:
         if data["due_date"]:
             try:

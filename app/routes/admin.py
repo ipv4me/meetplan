@@ -12,15 +12,16 @@ from app.helpers import (
     platform_admin_count,
 )
 from app.utils import STATUS_PENDING, STATUS_CONFIRMED, STATUS_REJECTED, STATUS_CANCELLED
-from app.time_utils import format_month_year, user_timezone, utcnow
+from app.time_utils import format_month_year, user_timezone, utcnow, utc_to_local, local_to_utc
+from app.utils import ru_plural
 from app.routes import bp
 
 
-def _meeting_counts_for_month(month_start):
+def _meeting_counts_for_month(month_start, month_end):
     requests = (
         MeetingRequest.query
         .join(Event, Event.id == MeetingRequest.event_id)
-        .filter(Event.start_datetime >= month_start)
+        .filter(Event.start_datetime >= month_start, Event.start_datetime < month_end)
         .all()
     )
     counts = {"pending": 0, "confirmed": 0, "rejected": 0, "cancelled": 0, "total": len(requests)}
@@ -51,12 +52,20 @@ def _friend_counts():
 @admin_required
 def admin_users():
     now = utcnow()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    tz = user_timezone(current_user)
+    local_now = utc_to_local(now, tz)
+    month_start_local = local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start_local.month == 12:
+        month_end_local = month_start_local.replace(year=month_start_local.year + 1, month=1)
+    else:
+        month_end_local = month_start_local.replace(month=month_start_local.month + 1)
+    month_start = local_to_utc(month_start_local, tz)
+    month_end = local_to_utc(month_end_local, tz)
     week_start = now - timedelta(days=7)
 
     members = User.query.order_by(User.username).all()
     bootstrap = {u.id for u in members if is_bootstrap_admin(u)}
-    meeting_counts = _meeting_counts_for_month(month_start)
+    meeting_counts = _meeting_counts_for_month(month_start, month_end)
     friend_counts = _friend_counts()
 
     overview = {
@@ -84,7 +93,8 @@ def admin_users():
         meeting_counts=meeting_counts,
         pending_friendships=pending_friendships,
         recent_users=User.query.order_by(User.created_at.desc()).limit(6).all(),
-        month_label=format_month_year(month_start, user_timezone(current_user)),
+        month_label=format_month_year(month_start, tz),
+        ru_plural=ru_plural,
         pending_count=pending_count(),
     )
 

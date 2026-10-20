@@ -44,21 +44,12 @@ def local_today(user):
     return utc_to_local(utcnow(), user_timezone(user)).date()
 
 
-def task_block_utc(task, user):
+def task_block_utc(task, user, client_tz_name=None):
     """Локальные due_date/due_time задачи → интервал UTC (для конфликтов с событиями в БД)."""
     start_t = task.due_time or dt_time(9, 0)
     local_start = datetime.combine(task.due_date, start_t)
-    utc_start = local_to_utc(local_start, user_timezone(user))
+    utc_start = local_to_utc(local_start, effective_timezone(user, client_tz_name))
     return utc_start, utc_start + timedelta(hours=1)
-
-
-def task_block_local_iso(task):
-    """Локальные due_date/due_time → ISO без Z для FullCalendar (wall-clock в поясе пользователя)."""
-    start_t = task.due_time or dt_time(9, 0)
-    local_start = datetime.combine(task.due_date, start_t)
-    local_end = local_start + timedelta(hours=1)
-    fmt = "%Y-%m-%dT%H:%M:%S"
-    return local_start.strftime(fmt), local_end.strftime(fmt)
 
 
 def timezone_label(name):
@@ -112,7 +103,7 @@ def meeting_end_datetime(date_value, start_time, end_time):
     start = datetime.combine(date_value, start_time)
     end = datetime.combine(date_value, end_time)
     if end <= start:
-        end += __import__("datetime").timedelta(days=1)
+        end += timedelta(days=1)
     return start, end
 
 
@@ -120,6 +111,13 @@ def combine_user_meeting(date_value, start_time, end_time, user, client_tz_name=
     start_local, end_local = meeting_end_datetime(date_value, start_time, end_time)
     tz = effective_timezone(user, client_tz_name)
     return local_to_utc(start_local, tz), local_to_utc(end_local, tz)
+
+
+def duration_ok(start, end, max_hours=24):
+    """Событие должно быть короче max_hours (сутки / overnight)."""
+    if start is None or end is None or end <= start:
+        return False
+    return (end - start) <= timedelta(hours=max_hours)
 
 
 def format_month_year(dt, tz=None):
@@ -133,17 +131,15 @@ def parse_client_datetime(iso_str, user, client_tz_name=None):
         raise ValueError("empty")
     s = iso_str.strip()
     if s.endswith("Z"):
-        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
-        return dt.astimezone(timezone.utc).replace(tzinfo=None)
-    if len(s) > 6 and s[10] in ("+", "-"):
-        dt = datetime.fromisoformat(s)
-        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        s = s[:-1] + "+00:00"
     dt = datetime.fromisoformat(s)
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return local_to_utc(dt, effective_timezone(user, client_tz_name))
 
 
-def format_dt(dt, user, fmt="%d.%m.%Y в %H:%M"):
+def format_dt(dt, user, fmt="%d.%m.%Y в %H:%M", client_tz_name=None):
     if dt is None:
         return ""
-    local = utc_to_local(dt, user_timezone(user))
+    local = utc_to_local(dt, effective_timezone(user, client_tz_name))
     return local.strftime(fmt)

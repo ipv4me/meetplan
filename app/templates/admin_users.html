@@ -53,10 +53,10 @@
     </a>
     {% endif %}
     {% if overview.pending_meetings %}
-    <a href="{{ url_for('main.requests_page', tab='incoming') }}" class="admin-attention-item text-decoration-none">
+    <div class="admin-attention-item">
       <span class="admin-attention-num">{{ overview.pending_meetings }}</span>
-      <span class="admin-attention-label">Встреч ждут подтверждения (все)</span>
-    </a>
+      <span class="admin-attention-label">Встреч ждут подтверждения на платформе</span>
+    </div>
     {% endif %}
   </div>
   {% if pending_friendships %}
@@ -156,7 +156,7 @@
           <div class="text-muted small text-break">{{ u.email }}</div>
           <div class="text-muted small admin-user-meta">
             В системе с {{ u.created_at|user_dt('%d.%m.%Y') if u.created_at else '—' }}
-            · {{ friend_counts.get(u.id, 0) }} {{ 'друг' if friend_counts.get(u.id, 0) == 1 else 'друга' if friend_counts.get(u.id, 0) in [2,3,4] else 'друзей' }}
+            · {{ friend_counts.get(u.id, 0) }} {{ ru_plural(friend_counts.get(u.id, 0), 'друг', 'друга', 'друзей') }}
           </div>
         </div>
         <div class="request-actions request-actions-row">
