@@ -124,6 +124,7 @@ def _tasks_to_fc(user, for_viewer=False, client_tz_name=None):
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,
+            "editable": False,
             "extendedProps": {
                 "description": "",
                 "type": "task",
@@ -158,6 +159,7 @@ def _tasks_to_fc_busy(user, client_tz_name=None):
             "backgroundColor": bg,
             "borderColor": border,
             "textColor": text,
+            "editable": False,
             "extendedProps": {
                 "description": "",
                 "type": "busy",
@@ -225,6 +227,7 @@ def _to_fc_busy(ev):
         "backgroundColor": bg,
         "borderColor": border,
         "textColor": text,
+        "editable": False,
         "extendedProps": {
             "description": "",
             "type": "busy",

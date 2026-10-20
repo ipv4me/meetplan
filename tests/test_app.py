@@ -967,3 +967,65 @@ def test_edit_meeting_title_keeps_confirmed(client, app):
         assert req.status_id == 2
         assert req.event.title == "New title"
 
+
+def test_api_404_returns_json(client):
+    _register(client, "api404", "api404@test.com")
+    r = client.delete("/api/meetings/999999")
+    assert r.status_code == 404
+    assert r.is_json
+    assert r.get_json().get("ok") is False
+
+
+def test_task_and_busy_not_editable(client, app):
+    _register(client, "tedit", "tedit@test.com")
+    _register(client, "tedit2", "tedit2@test.com")
+    _make_friends(app, "tedit@test.com", "tedit2@test.com")
+    with app.app_context():
+        owner = User.query.filter_by(email="tedit@test.com").first()
+        owner_id = owner.id
+        owner.hide_calendar_details_from_friends = True
+        db.session.commit()
+    _login(client, "tedit@test.com")
+    client.post("/api/tasks", json={
+        "title": "Block",
+        "due_date": "2026-08-01",
+        "due_time": "12:00",
+    })
+    client.post("/api/events", json={
+        "title": "Private",
+        "description": "",
+        "start": "2026-08-01T14:00:00",
+        "end": "2026-08-01T15:00:00",
+    })
+    own = client.get("/api/events").get_json()
+    task = next(e for e in own if e.get("extendedProps", {}).get("type") == "task")
+    assert task.get("editable") is False
+    _login(client, "tedit2@test.com")
+    friend_cal = client.get(f"/api/users/{owner_id}/events").get_json()
+    busy_items = [e for e in friend_cal if e.get("extendedProps", {}).get("type") == "busy"]
+    assert busy_items
+    assert all(e.get("editable") is False for e in busy_items)
+
+
+def test_requests_outgoing_tab_query(client, app):
+    _register(client, "tab1", "tab1@test.com")
+    r = client.get("/requests?tab=outgoing&out_page=1")
+    assert r.status_code == 200
+    assert b'id="outgoing"' in r.data
+    assert b'data-badge="meetings"' in client.get("/calendar").data
+
+
+def test_conflict_iso_with_seconds(client, app):
+    _register(client, "csec1", "csec1@test.com")
+    _register(client, "csec2", "csec2@test.com")
+    _make_friends(app, "csec1@test.com", "csec2@test.com")
+    with app.app_context():
+        uid2 = User.query.filter_by(email="csec2@test.com").first().id
+    _login(client, "csec1@test.com")
+    r = client.post("/api/meetings/check-conflicts", json={
+        "to_user": uid2,
+        "start": "2026-09-01T10:00:00",
+        "end": "2026-09-01T11:00:00",
+    })
+    assert r.status_code == 200
+    assert "conflicts" in r.get_json()

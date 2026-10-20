@@ -71,7 +71,7 @@
         {% else %}
         {{ empty_state('bi-send', 'Исходящих запросов нет', 'Создайте встречу с другом.', url_for('main.new_meeting'), 'Создать встречу') }}
         {% endfor %}
-        {{ pagination_nav(outgoing_pagination, 'out_page') }}
+        {{ pagination_nav(outgoing_pagination, 'out_page', {'tab': 'outgoing'}) }}
       </div>
     </div>
   </div>

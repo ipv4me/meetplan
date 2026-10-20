@@ -9,6 +9,15 @@ def _parse_admin_emails(raw):
     )
 
 
+def is_production_env():
+    """Render/Heroku/FLASK_ENV=production — один источник правды для ProxyFix и cookies."""
+    return (
+        os.environ.get("FLASK_ENV") == "production"
+        or os.environ.get("RENDER") == "true"
+        or bool(os.environ.get("DYNO"))
+    )
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-secret"
 
@@ -30,8 +39,9 @@ class Config:
 
     AVATAR_DIR = os.path.join(BASE_DIR, "app", "static", "uploads", "avatars")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV") == "production"
+    SESSION_COOKIE_SECURE = is_production_env()
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    PREFERRED_URL_SCHEME = "https" if is_production_env() else "http"
     MAX_CONTENT_LENGTH = 3 * 1024 * 1024
     DEFAULT_USER_TIMEZONE = os.environ.get("DEFAULT_USER_TIMEZONE", "Europe/Moscow")

@@ -61,8 +61,8 @@
       {% set nav_active = request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') or (endpoint == 'main.calendar' and request.endpoint in ['main.edit_meeting', 'main.new_meeting']) or (endpoint == 'main.tasks' and request.endpoint == 'main.edit_event') %}
       <a href="{{ url_for(endpoint) }}" class="nav-link {% if nav_active %}active{% endif %}">
         <i class="bi {{ icon }}"></i> <span>{{ label }}</span>
-        {% if badge == 'meeting' and pending_badge %}<span class="badge bg-danger ms-auto">{{ pending_badge }}</span>{% endif %}
-        {% if badge == 'friend' and friend_badge %}<span class="badge bg-danger ms-auto">{{ friend_badge }}</span>{% endif %}
+        {% if badge == 'meeting' %}<span class="badge bg-danger ms-auto{% if not pending_badge %} d-none{% endif %}" data-badge="meetings">{{ pending_badge or '' }}</span>{% endif %}
+        {% if badge == 'friend' %}<span class="badge bg-danger ms-auto{% if not friend_badge %} d-none{% endif %}" data-badge="friends">{{ friend_badge or '' }}</span>{% endif %}
       </a>
       {% endfor %}
       {% if current_user.is_admin %}
@@ -92,7 +92,7 @@
         </button>
         <a href="{{ url_for('main.requests_page') }}" class="btn-icon position-relative" aria-label="Запросы на встречи">
           <i class="bi bi-bell"></i>
-          <span class="dot"{% if not pending_badge %} style="display:none"{% endif %}>{{ pending_badge or '' }}</span>
+          <span class="dot" data-badge="meetings"{% if not pending_badge %} style="display:none"{% endif %}>{{ pending_badge or '' }}</span>
         </a>
         <a href="{{ url_for('main.profile') }}" aria-label="Профиль">{{ avatar(current_user, 'avatar-sm') }}</a>
       </div>
@@ -119,8 +119,8 @@
     <a href="{{ url_for(endpoint) }}" class="{% if request.endpoint == endpoint or (endpoint == 'main.friends' and request.endpoint == 'main.user_calendar') %}active{% endif %}">
       <span class="position-relative">
         <i class="bi {{ icon }}"></i>
-        {% if badge == 'meeting' %}<span class="dot"{% if not pending_badge %} style="display:none"{% endif %}>{{ pending_badge or '' }}</span>{% endif %}
-        {% if badge == 'friend' and friend_badge %}<span class="dot">{{ friend_badge }}</span>{% endif %}
+        {% if badge == 'meeting' %}<span class="dot" data-badge="meetings"{% if not pending_badge %} style="display:none"{% endif %}>{{ pending_badge or '' }}</span>{% endif %}
+        {% if badge == 'friend' %}<span class="dot" data-badge="friends"{% if not friend_badge %} style="display:none"{% endif %}>{{ friend_badge or '' }}</span>{% endif %}
       </span>
       <small>{{ label }}</small>
     </a>
@@ -212,7 +212,7 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/ru.global.min.js"></script>
-<script src="{{ url_for('static', filename='js/app.js', v=4) }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v=5) }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

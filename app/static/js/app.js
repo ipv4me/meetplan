@@ -25,16 +25,28 @@ function syncCalendar() {
 }
 
 function initSubmitGuards() {
-  document.querySelectorAll("form.meeting-form, form.widget-form").forEach(function (form) {
+  document.querySelectorAll("form[method='post'], form[method='POST'], form.meeting-form, form.widget-form").forEach(function (form) {
     form.addEventListener("submit", function () {
       const btn = form.querySelector('[type="submit"]');
       if (btn && !btn.disabled) {
         btn.disabled = true;
         if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
-        btn.innerHTML = "Отправляем…";
+        if (!btn.dataset.keepLabel) btn.innerHTML = "Отправляем…";
       }
     });
   });
+}
+
+/** Нормализует HH:MM или HH:MM:SS для ISO без лишних :00 */
+function normalizeTimeValue(t) {
+  if (!t) return t;
+  if (/^\d{2}:\d{2}$/.test(t)) return t + ":00";
+  if (/^\d{2}:\d{2}:\d{2}/.test(t)) return t.slice(0, 8);
+  return t;
+}
+
+function toLocalDateTimeIso(date, time) {
+  return date + "T" + normalizeTimeValue(time);
 }
 
 /* ---------- Утилиты UI ---------- */
@@ -147,6 +159,9 @@ function confirmAction(options) {
   const bodyEl = document.getElementById("confirmModalBody");
   const okBtn = document.getElementById("confirmModalOk");
   const cancelBtn = document.getElementById("confirmModalCancel");
+  if (!titleEl || !bodyEl || !okBtn) {
+    return Promise.resolve(window.confirm(opts.message || opts.title || "Подтвердите действие"));
+  }
   titleEl.textContent = opts.title || "Подтвердите действие";
   bodyEl.textContent = opts.message || "";
   okBtn.textContent = opts.confirmLabel || "Подтвердить";
@@ -175,7 +190,7 @@ function confirmAction(options) {
     okBtn.addEventListener("click", onOk);
     modalEl.addEventListener("hidden.bs.modal", onHide, { once: false });
     modal.show();
-    cancelBtn.focus();
+    if (cancelBtn) cancelBtn.focus();
   });
 }
 
@@ -247,8 +262,11 @@ function initTasks() {
   if (addBtn && titleInput) {
     function addTask() {
       const title = titleInput.value.trim();
-      if (!title) { errEl.textContent = "Введите название"; return; }
-      errEl.textContent = "";
+      if (!title) {
+        if (errEl) errEl.textContent = "Введите название";
+        return;
+      }
+      if (errEl) errEl.textContent = "";
       btnBusy(addBtn, true, "Добавляем…");
       $.ajax({
         url: "/api/tasks",
@@ -270,7 +288,7 @@ function initTasks() {
           syncCalendar();
         },
         error: function (xhr) {
-          errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
+          if (errEl) errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
         },
         complete: function () { btnBusy(addBtn, false); },
       });
@@ -361,12 +379,18 @@ function initTasks() {
 let editingTaskItem = null;
 
 function openTaskEdit(item) {
+  const modalEl = document.getElementById("taskEditModal");
+  const titleEl = document.getElementById("editTaskTitle");
+  const dateEl = document.getElementById("editTaskDate");
+  const timeEl = document.getElementById("editTaskTime");
+  const errEl = document.getElementById("editTaskError");
+  if (!modalEl || !titleEl || !dateEl || !timeEl) return;
   editingTaskItem = item;
-  document.getElementById("editTaskTitle").value = item.dataset.title || "";
-  document.getElementById("editTaskDate").value = item.dataset.dueDate || "";
-  document.getElementById("editTaskTime").value = item.dataset.dueTime || "";
-  document.getElementById("editTaskError").textContent = "";
-  bootstrap.Modal.getOrCreateInstance(document.getElementById("taskEditModal")).show();
+  titleEl.value = item.dataset.title || "";
+  dateEl.value = item.dataset.dueDate || "";
+  timeEl.value = item.dataset.dueTime || "";
+  if (errEl) errEl.textContent = "";
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 function saveTaskEdit(onComplete) {
@@ -708,14 +732,30 @@ function initCalendar(el) {
       reschedulePersonalEvent(info);
     },
     dateClick: function (info) {
-      if (!isReadOnly || !viewUserId) return;
       const d = info.date;
       const pad = (n) => String(n).padStart(2, "0");
       const date = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
       const start = pad(d.getHours()) + ":" + pad(d.getMinutes());
-      window.location.href = "/meeting/new?to=" + viewUserId + "&date=" + date + "&start=" + start;
+      if (isReadOnly && viewUserId) {
+        window.location.href = "/meeting/new?to=" + viewUserId + "&date=" + date + "&start=" + start;
+        return;
+      }
+      if (isReadOnly) return;
+      const modalEl = document.getElementById("newEventModal");
+      const dateEl = document.getElementById("neDate");
+      const startEl = document.getElementById("neStart");
+      const endEl = document.getElementById("neEnd");
+      const errEl = document.getElementById("neError");
+      if (!modalEl || !dateEl) return;
+      dateEl.value = date;
+      if (!info.allDay && startEl && endEl) {
+        startEl.value = start;
+        endEl.value = addOneHour(start);
+      }
+      if (errEl) errEl.textContent = "";
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
     },
-    selectable: isReadOnly,
+    selectable: true,
   });
   calendar.render();
   hideCalendarSkeleton();
@@ -792,12 +832,14 @@ function showEventDetails(event) {
   if (!titleEl || !modalEl) return;
 
   titleEl.textContent = event.title || "Событие";
-  if (props.type === "busy") {
-    descEl.textContent = "Участник занят в это время.";
-  } else if (props.type === "task") {
-    descEl.textContent = "Задача из раздела «Мои дела». Можно удалить — она исчезнет и из списка дел.";
-  } else {
-    descEl.textContent = props.description || "Без описания";
+  if (descEl) {
+    if (props.type === "busy") {
+      descEl.textContent = "Участник занят в это время.";
+    } else if (props.type === "task") {
+      descEl.textContent = "Задача из раздела «Мои дела». Можно удалить — она исчезнет и из списка дел.";
+    } else {
+      descEl.textContent = props.description || "Без описания";
+    }
   }
 
   const dateStr = formatInCalendarTz(event.start, { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -931,26 +973,39 @@ document.addEventListener("click", function (e) {
 /* ---------- Создание личного события (AJAX) ---------- */
 function openNewEventModal() {
   const modalEl = document.getElementById("newEventModal");
-  if (!modalEl) return;
-  document.getElementById("neDate").value = localDateISO();
-  document.getElementById("neError").textContent = "";
+  const dateEl = document.getElementById("neDate");
+  const errEl = document.getElementById("neError");
+  if (!modalEl || !dateEl) return;
+  dateEl.value = localDateISO();
+  if (errEl) errEl.textContent = "";
   bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 function bindNewEventModal() {
   const modalEl = document.getElementById("newEventModal");
-  if (!modalEl) return;
+  const saveBtn = document.getElementById("neSave");
+  if (!modalEl || !saveBtn) return;
 
-  document.getElementById("neSave").addEventListener("click", function () {
-    const saveBtn = document.getElementById("neSave");
-    const title = document.getElementById("neTitle").value.trim();
-    const date = document.getElementById("neDate").value;
-    const start = document.getElementById("neStart").value;
-    const end = document.getElementById("neEnd").value;
+  saveBtn.addEventListener("click", function () {
+    const titleEl = document.getElementById("neTitle");
+    const dateEl = document.getElementById("neDate");
+    const startEl = document.getElementById("neStart");
+    const endEl = document.getElementById("neEnd");
+    const descEl = document.getElementById("neDesc");
     const err = document.getElementById("neError");
+    if (!titleEl || !dateEl || !startEl || !endEl) return;
+
+    const title = titleEl.value.trim();
+    const date = dateEl.value;
+    const start = startEl.value;
+    const end = endEl.value;
 
     if (!title || !date || !start || !end) {
-      err.textContent = "Заполните все поля.";
+      if (err) err.textContent = "Заполните все поля.";
+      return;
+    }
+    if (normalizeTimeValue(end) <= normalizeTimeValue(start)) {
+      if (err) err.textContent = "Время окончания должно быть позже начала.";
       return;
     }
     btnBusy(saveBtn, true, "Сохраняем…");
@@ -960,18 +1015,18 @@ function bindNewEventModal() {
       contentType: "application/json",
       data: JSON.stringify({
         title: title,
-        description: document.getElementById("neDesc").value,
-        start: date + "T" + start,
-        end: date + "T" + end,
+        description: descEl ? descEl.value : "",
+        start: toLocalDateTimeIso(date, start),
+        end: toLocalDateTimeIso(date, end),
       }),
       success: function () {
         hideModalById("newEventModal");
-        document.getElementById("neTitle").value = "";
-        document.getElementById("neDesc").value = "";
+        titleEl.value = "";
+        if (descEl) descEl.value = "";
         if (calendar) calendar.refetchEvents();
       },
       error: function (xhr) {
-        err.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка сохранения.";
+        if (err) err.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка сохранения.";
       },
       complete: function () { btnBusy(saveBtn, false); },
     });
@@ -1011,13 +1066,16 @@ function pollNotifications() {
 }
 
 function updateBadges(count) {
-  document.querySelectorAll(".dot").forEach((el) => {
-    if (count > 0) { el.textContent = count; el.style.display = ""; }
-    else { el.style.display = "none"; }
-  });
-  document.querySelectorAll(".sidebar-nav .badge, .offcanvas .badge").forEach((el) => {
-    if (count > 0) { el.textContent = count; el.classList.remove("d-none"); }
-    else { el.classList.add("d-none"); }
+  document.querySelectorAll('[data-badge="meetings"]').forEach(function (el) {
+    if (count > 0) {
+      el.textContent = count;
+      el.style.display = "";
+      el.classList.remove("d-none");
+    } else if (el.classList.contains("dot")) {
+      el.style.display = "none";
+    } else {
+      el.classList.add("d-none");
+    }
   });
 }
 
@@ -1063,7 +1121,9 @@ function showToast(title, body, reqId) {
   el.addEventListener("hidden.bs.toast", () => el.remove());
   el.querySelectorAll("[data-req-action]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      respondRequest(btn.dataset.reqId, btn.dataset.reqAction, true);
+      if (btn.disabled) return;
+      el.querySelectorAll("[data-req-action]").forEach(function (b) { b.disabled = true; });
+      respondRequest(btn.dataset.reqId, btn.dataset.reqAction, true, btn);
       t.hide();
     });
   });
@@ -1143,10 +1203,20 @@ function initRequestsTabs() {
   if (!tabs) return;
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab");
-  if (tab === "outgoing") {
+  const outPage = params.get("out_page");
+  if (tab === "outgoing" || (outPage && tab !== "incoming")) {
     const btn = tabs.querySelector('[data-bs-target="#outgoing"]');
     if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
   }
+  tabs.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (btn) {
+    btn.addEventListener("shown.bs.tab", function () {
+      const target = btn.getAttribute("data-bs-target");
+      const url = new URL(window.location.href);
+      if (target === "#outgoing") url.searchParams.set("tab", "outgoing");
+      else url.searchParams.delete("tab");
+      history.replaceState(null, "", url.pathname + url.search);
+    });
+  });
 }
 
 /* ---------- Проверка конфликтов (форма встречи и виджеты) ---------- */
@@ -1160,8 +1230,8 @@ function initMeetingConflictCheck() {
     const excludeId = form.dataset.excludeEventId;
     function check() {
       if (!toUser || !toUser.value || !date || !date.value || !start || !start.value || !end || !end.value) return;
-      const startIso = date.value + "T" + start.value + ":00";
-      const endIso = date.value + "T" + end.value + ":00";
+      const startIso = toLocalDateTimeIso(date.value, start.value);
+      const endIso = toLocalDateTimeIso(date.value, end.value);
       const payload = { to_user: toUser.value, start: startIso, end: endIso };
       if (excludeId) payload.exclude_event_id = excludeId;
       $.ajax({

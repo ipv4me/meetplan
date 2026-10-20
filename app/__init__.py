@@ -1,14 +1,14 @@
 import os
 
-from flask import Flask
+from flask import Flask, jsonify, request, render_template_string
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_migrate import Migrate
 from sqlalchemy import inspect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import Config
+from config import Config, is_production_env
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -39,29 +39,68 @@ def create_app(config_class=Config):
         user = current_user if current_user.is_authenticated else None
         return format_dt(dt, user, fmt, client_timezone_name())
 
+    is_prod = is_production_env()
+
     if (
         not app.config.get("TESTING")
-        and os.environ.get("FLASK_ENV") == "production"
+        and is_prod
         and app.config["SECRET_KEY"] == "dev-secret"
     ):
         raise RuntimeError("Set SECRET_KEY environment variable in production.")
 
-    if os.environ.get("FLASK_ENV") == "production":
+    if (
+        not app.config.get("TESTING")
+        and is_prod
+        and not os.environ.get("DATABASE_URL")
+    ):
+        raise RuntimeError("Set DATABASE_URL environment variable in production.")
+
+    if is_prod:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     from app.routes import bp as main_bp
 
     app.register_blueprint(main_bp)
 
-    @app.errorhandler(429)
-    def too_many_requests(e):
-        from flask import request, jsonify, render_template_string
-
-        if (
+    def _wants_json():
+        return (
             request.path.startswith("/api/")
             or request.accept_mimetypes.best == "application/json"
             or request.is_json
-        ):
+        )
+
+    def _json_http_error(e):
+        code = getattr(e, "code", 500) or 500
+        desc = getattr(e, "description", None) or "Ошибка запроса"
+        if _wants_json():
+            return jsonify({"ok": False, "error": desc}), code
+        if hasattr(e, "get_response"):
+            return e.get_response()
+        return desc, code
+
+    @app.errorhandler(400)
+    @app.errorhandler(403)
+    @app.errorhandler(404)
+    def http_client_error(e):
+        return _json_http_error(e)
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        if _wants_json():
+            return jsonify({"ok": False, "error": "Сессия устарела. Обновите страницу."}), 400
+        return render_template_string(
+            "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>Сессия устарела</title></head><body style='font-family:sans-serif;padding:2rem'>"
+            "<h1>Сессия устарела</h1>"
+            "<p>Обновите страницу и повторите действие.</p>"
+            "<p><a href='/'>На главную</a></p>"
+            "</body></html>"
+        ), 400
+
+    @app.errorhandler(429)
+    def too_many_requests(e):
+        if _wants_json():
             return jsonify({"ok": False, "error": "Слишком много попыток. Подождите немного."}), 429
         return render_template_string(
             "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
@@ -74,7 +113,6 @@ def create_app(config_class=Config):
         ), 429
 
     with app.app_context():
-        is_prod = os.environ.get("FLASK_ENV") == "production"
         is_test = app.config.get("TESTING")
         has_tables = bool(inspect(db.engine).get_table_names())
 

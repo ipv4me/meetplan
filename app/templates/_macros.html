@@ -30,11 +30,12 @@
 {% endmacro %}
 
 {# Пагинация Bootstrap (сохраняет текущие query-параметры) #}
-{% macro pagination_nav(p, param_name) %}
+{% macro pagination_nav(p, param_name, extra=None) %}
 {% if p.pages > 1 %}
 <nav class="mt-3" aria-label="Страницы">
   <ul class="pagination pagination-sm justify-content-center mb-0">
     {% set args = request.args.to_dict(flat=True) %}
+    {% if extra %}{% set _ = args.update(extra) %}{% endif %}
     <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
       {% set prev_args = args.copy() %}{% set _ = prev_args.update({param_name: p.prev_num}) %}
       <a class="page-link" href="{{ url_for(request.endpoint, **prev_args) if p.has_prev else '#' }}">←</a>
