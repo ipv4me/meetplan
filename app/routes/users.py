@@ -53,7 +53,7 @@ def users():
     return redirect(url_for("main.friends"))
 
 
-@bp.route("/friends/join/<token>")
+@bp.route("/friends/join/<token>", methods=["GET", "POST"])
 @login_required
 def friends_join(token):
     owner = User.query.filter_by(invite_token=token).first()
@@ -63,6 +63,13 @@ def friends_join(token):
     if owner.id == current_user.id:
         flash("Это ваша собственная ссылка.", "info")
         return redirect(url_for("main.friends"))
+    if request.method == "GET":
+        return render_template(
+            "friends_join.html",
+            owner=owner,
+            token=token,
+            pending_count=pending_count(),
+        )
     _, err = accept_friendship(owner.id, current_user.id, source="invite")
     if err:
         flash(err, "warning")

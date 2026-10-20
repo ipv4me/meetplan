@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
   initFriendsOnboarding();
   initDeviceTimezoneLabels();
   initClientTimezoneForms();
+  initSubmitGuards();
   const el = document.getElementById("calendar");
   if (el) initCalendar(el);
   bindNewEventModal();
@@ -18,6 +19,23 @@ document.addEventListener("DOMContentLoaded", function () {
   initMeetingConflictCheck();
   initRequestsTabs();
 });
+
+function syncCalendar() {
+  if (calendar) calendar.refetchEvents();
+}
+
+function initSubmitGuards() {
+  document.querySelectorAll("form.meeting-form, form.widget-form").forEach(function (form) {
+    form.addEventListener("submit", function () {
+      const btn = form.querySelector('[type="submit"]');
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+        btn.innerHTML = "Отправляем…";
+      }
+    });
+  });
+}
 
 /* ---------- Утилиты UI ---------- */
 const FRIENDS_ONBOARDING_KEY = "meetplan_friends_onboarding_dismissed";
@@ -249,6 +267,7 @@ function initTasks() {
           if (timeInput) timeInput.value = "";
           titleInput.focus();
           if (emptyEl) emptyEl.classList.add("d-none");
+          syncCalendar();
         },
         error: function (xhr) {
           errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";
@@ -272,7 +291,12 @@ function initTasks() {
         item.classList.add("is-loading");
         $.post("/api/tasks/" + item.dataset.id + "/toggle")
           .done(function (res) {
-            item.classList.toggle("done", res.done);
+            document.querySelectorAll('.todo-item[data-id="' + item.dataset.id + '"]').forEach(function (el) {
+              el.classList.toggle("done", res.done);
+              const cb = el.querySelector(".todo-check");
+              if (cb) cb.checked = res.done;
+            });
+            syncCalendar();
           })
           .fail(function () {
             checkbox.checked = !prev;
@@ -313,6 +337,7 @@ function initTasks() {
               if (emptyEl && !document.getElementById("taskList")?.querySelector(".todo-item")) {
                 emptyEl.classList.remove("d-none");
               }
+              syncCalendar();
               showSuccessToast("Дело удалено");
             },
             error: function () { showErrorToast("Не удалось удалить дело"); },
@@ -376,6 +401,7 @@ function saveTaskEdit(onComplete) {
         dueEl.classList.add("d-none");
       }
       hideModalById("taskEditModal");
+      syncCalendar();
     },
     error: function (xhr) {
       errEl.textContent = (xhr.responseJSON && xhr.responseJSON.error) || "Ошибка";

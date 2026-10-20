@@ -43,15 +43,19 @@ python run.py
 
 ## Деплой на Render + Neon
 
-1. **Web Service** → Build: `pip install -r requirements.txt`, Start: `gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app`
+1. **Web Service** → Build: `pip install -r requirements.txt`  
+   **Start Command:** `gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app`  
+   (не `gunicorn run:app` — иначе возможен сбой порта / entrypoint)
 2. **Environment** (Render → Environment):
    - `SECRET_KEY` — случайная строка
    - `ADMIN_EMAILS` — ваш email
    - `FLASK_ENV` = `production`
    - `DATABASE_URL` — строка подключения Neon (с `?sslmode=require`)
    - `FLASK_APP` = `run.py`
-3. **Release Command** (Procfile уже задаёт): `flask db upgrade` — обязателен на проде.
+3. **Release Command** (Procfile): `FLASK_APP=run.py flask db upgrade`
 4. Postgres на Render **не нужен**, если используете Neon.
+
+Локальные тесты: `pip install -r requirements-dev.txt && pytest`
 
 При первом деплое пустая БД получает таблицы через `create_all` + `ensure_schema`; дальше схему держат Alembic-миграции.
 

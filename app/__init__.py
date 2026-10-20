@@ -53,6 +53,26 @@ def create_app(config_class=Config):
 
     app.register_blueprint(main_bp)
 
+    @app.errorhandler(429)
+    def too_many_requests(e):
+        from flask import request, jsonify, render_template_string
+
+        if (
+            request.path.startswith("/api/")
+            or request.accept_mimetypes.best == "application/json"
+            or request.is_json
+        ):
+            return jsonify({"ok": False, "error": "Слишком много попыток. Подождите немного."}), 429
+        return render_template_string(
+            "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>Слишком много попыток</title></head><body style='font-family:sans-serif;padding:2rem'>"
+            "<h1>Слишком много попыток</h1>"
+            "<p>Подождите несколько минут и попробуйте снова.</p>"
+            "<p><a href='{{ url_for(\"main.login\") }}'>Вернуться ко входу</a></p>"
+            "</body></html>"
+        ), 429
+
     with app.app_context():
         is_prod = os.environ.get("FLASK_ENV") == "production"
         is_test = app.config.get("TESTING")

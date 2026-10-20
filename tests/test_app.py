@@ -192,7 +192,16 @@ def test_invite_link_adds_friend(client, app):
         token = host.invite_token
 
     _login(client, "guest@test.com")
-    r = client.get(f"/friends/join/{token}", follow_redirects=True)
+    r = client.get(f"/friends/join/{token}")
+    assert r.status_code == 200
+    assert "Добавить в друзья".encode("utf-8") in r.data
+    with app.app_context():
+        from app.friends_service import are_friends
+        host = User.query.filter_by(email="host@test.com").first()
+        guest = User.query.filter_by(email="guest@test.com").first()
+        assert not are_friends(host.id, guest.id)
+
+    r = client.post(f"/friends/join/{token}", follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
         from app.friends_service import are_friends
@@ -876,6 +885,50 @@ def test_multiday_event_rejected(client, app):
         headers={"X-Client-Timezone": "UTC"},
     )
     assert r.status_code == 400
+
+
+def test_organizer_calendar_flags_allow_edit_delete(client, app):
+    _register(client, "host", "host_f@test.com")
+    _register(client, "guest", "guest_f@test.com")
+    _make_friends(app, "host_f@test.com", "guest_f@test.com")
+    with app.app_context():
+        gid = User.query.filter_by(email="guest_f@test.com").first().id
+    _login(client, "host_f@test.com")
+    client.post("/meeting/new", data={
+        "to_user": gid,
+        "date": "2026-10-25",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "title": "Demo",
+        "description": "",
+        "client_timezone": "UTC",
+    }, follow_redirects=True)
+    r = client.get("/api/events")
+    meeting = next(e for e in r.get_json() if e["extendedProps"]["type"] == "meeting")
+    assert meeting["extendedProps"]["isOwner"] is True
+    assert meeting["extendedProps"]["canDelete"] is True
+    assert meeting["extendedProps"]["canCancel"] is True
+    eid = meeting["id"]
+    assert client.get(f"/meeting/{eid}/edit").status_code == 200
+    assert client.delete(f"/api/meetings/{eid}").get_json()["ok"] is True
+
+
+def test_rate_limit_error_page(client, app):
+    app.config["TESTING"] = False
+    try:
+        from app.helpers import _login_attempts, RATE_LIMIT_MAX
+        _login_attempts.clear()
+        for _ in range(RATE_LIMIT_MAX):
+            client.post("/login", data={"email": "nobody@test.com", "password": "wrong"})
+        r = client.post("/login", data={"email": "nobody@test.com", "password": "wrong"})
+        assert r.status_code == 429
+        assert "попыток".encode("utf-8") in r.data
+        # форма входа по GET всё ещё открывается
+        assert client.get("/login").status_code == 200
+    finally:
+        app.config["TESTING"] = True
+        from app.helpers import _login_attempts
+        _login_attempts.clear()
 
 
 def test_edit_meeting_title_keeps_confirmed(client, app):

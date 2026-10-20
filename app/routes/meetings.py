@@ -140,11 +140,13 @@ def edit_meeting(event_id):
             return _render_meeting_form(
                 form, "Редактировать встречу", exclude_event_id=ev.id, force_form=True,
             )
-        schedule_changed = (
-            ev.start_datetime != start
-            or ev.end_datetime != end
-            or form.to_user.data != old_to
+        # допуск 60с — защита от шума профиля/device TZ при правке только темы
+        times_unchanged = (
+            abs((ev.start_datetime - start).total_seconds()) < 60
+            and abs((ev.end_datetime - end).total_seconds()) < 60
         )
+        participant_unchanged = form.to_user.data == old_to
+        schedule_changed = not (times_unchanged and participant_unchanged)
         friend_ids = valid_colleague_ids()
         if schedule_changed and form.to_user.data not in friend_ids:
             flash("Чтобы изменить время или участника, человек должен быть в друзьях.", "danger")
@@ -165,9 +167,9 @@ def edit_meeting(event_id):
                 )
         ev.title = form.title.data
         ev.description = form.description.data
-        ev.start_datetime = start
-        ev.end_datetime = end
         if schedule_changed:
+            ev.start_datetime = start
+            ev.end_datetime = end
             if ev.request:
                 ev.request.to_user_id = form.to_user.data
                 ev.request.status_id = STATUS_PENDING

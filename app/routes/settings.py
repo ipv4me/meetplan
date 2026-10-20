@@ -82,7 +82,10 @@ def user_avatar(user_id):
     return Response(
         user.avatar_data,
         mimetype=user.avatar_mimetype or "image/jpeg",
-        headers={"Cache-Control": "private, max-age=3600"},
+        headers={
+            "Cache-Control": "private, no-cache, must-revalidate",
+            "ETag": f'"{user.id}-{len(user.avatar_data)}"',
+        },
     )
 
 

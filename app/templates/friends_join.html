@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from '_macros.html' import avatar, page_header %}
+{% block title %}Приглашение — MeetPlan{% endblock %}
+{% block topbar_title %}Приглашение в друзья{% endblock %}
+{% block content %}
+<div class="card content-card form-card">
+  <div class="card-body text-center">
+    {{ page_header('Подтвердите добавление — так вы сможете видеть календари друг друга и назначать встречи.') }}
+    <div class="d-flex flex-column align-items-center gap-2 mb-4">
+      {{ avatar(owner, 'avatar-lg') }}
+      <div class="fw-semibold">{{ owner.username }}</div>
+      <div class="text-muted small text-break">{{ owner.email }}</div>
+    </div>
+    <form method="POST" class="d-flex flex-wrap gap-2 justify-content-center">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary">Добавить в друзья</button>
+      <a href="{{ url_for('main.friends') }}" class="btn btn-outline-secondary">Отмена</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

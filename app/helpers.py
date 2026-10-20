@@ -38,6 +38,19 @@ def pending_count():
     return g._pending_count
 
 
+def pending_friend_count():
+    from flask import g
+    from app.friends_service import pending_incoming
+
+    if not current_user.is_authenticated:
+        return 0
+    cached = getattr(g, "_pending_friend_count", None)
+    if cached is not None:
+        return cached
+    g._pending_friend_count = len(pending_incoming(current_user.id))
+    return g._pending_friend_count
+
+
 def validate_title(title):
     """Нормализует и проверяет тему события/задачи. Возвращает (ok, value_or_error)."""
     title = (title or "").strip()
@@ -276,7 +289,9 @@ def rate_limit(scope="default"):
     def decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-            check_rate_limit(scope)
+            # GET (форма входа) не блокируем — иначе 429-редирект зациклится
+            if request.method != "GET":
+                check_rate_limit(scope)
             return view(*args, **kwargs)
 
         return wrapped
