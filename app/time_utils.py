@@ -1,6 +1,6 @@
 """Часовые пояса: хранение в UTC (naive), отображение в локальном."""
 
-from datetime import datetime, time as dt_time, timedelta, timezone, date
+from datetime import datetime, time as dt_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "Europe/Moscow"
@@ -38,10 +38,6 @@ def user_timezone_name(user):
     if user is None:
         return DEFAULT_TIMEZONE
     return getattr(user, "timezone", None) or DEFAULT_TIMEZONE
-
-
-def local_today(user):
-    return utc_to_local(utcnow(), user_timezone(user)).date()
 
 
 def task_block_utc(task, user, client_tz_name=None):
@@ -92,10 +88,11 @@ def utc_to_local(naive_utc, tz):
     return aware.astimezone(tz).replace(tzinfo=None)
 
 
-def combine_user_local(date_value, time_value, user, client_tz_name=None):
-    tz = effective_timezone(user, client_tz_name)
-    local = datetime.combine(date_value, time_value)
-    return local_to_utc(local, tz)
+def apply_overnight(start, end):
+    """Если конец ≤ начала — ночной слот (+1 день)."""
+    if end <= start:
+        end = end + timedelta(days=1)
+    return start, end
 
 
 def meeting_end_datetime(date_value, start_time, end_time):

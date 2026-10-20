@@ -1,16 +1,14 @@
-from datetime import datetime, timedelta
-
 from flask import render_template, jsonify, abort, request, flash, redirect, url_for
 from flask_login import login_required, current_user
 
 from app import db
-from app.models import User, Event, MeetingRequest, Task
+from app.models import Event, MeetingRequest, Task
 from app.forms import EventForm
 from app.utils import events_for_user, STATUS_PENDING
 from app.helpers import (
     pending_count,
-    colleagues_query,
-    ensure_colleague,
+    friends_query,
+    ensure_friend,
     client_timezone_name,
     validate_title,
 )
@@ -20,21 +18,16 @@ from app.time_utils import (
     parse_client_datetime,
     effective_timezone,
     duration_ok,
+    apply_overnight,
 )
 from app.routes import bp
-
-
-def _apply_overnight(start, end):
-    if end <= start:
-        end = end + timedelta(days=1)
-    return start, end
 
 
 @bp.route("/")
 @bp.route("/calendar")
 @login_required
 def calendar():
-    others = colleagues_query().all()
+    others = friends_query().all()
     latest_request = (
         MeetingRequest.query
         .filter_by(to_user_id=current_user.id, status_id=STATUS_PENDING)
@@ -66,7 +59,7 @@ def api_events():
 @bp.route("/api/users/<int:user_id>/events")
 @login_required
 def api_user_events(user_id):
-    user = ensure_colleague(user_id)
+    user = ensure_friend(user_id)
     return jsonify(events_for_user(user.id, viewer_id=current_user.id))
 
 
@@ -80,7 +73,7 @@ def api_create_event():
             return jsonify({"ok": False, "error": title}), 400
         start = parse_client_datetime(data["start"], current_user, client_timezone_name())
         end = parse_client_datetime(data["end"], current_user, client_timezone_name())
-        start, end = _apply_overnight(start, end)
+        start, end = apply_overnight(start, end)
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
     if not duration_ok(start, end):
@@ -120,7 +113,7 @@ def api_reschedule_event(event_id):
     try:
         start = parse_client_datetime(data["start"], current_user, client_timezone_name())
         end = parse_client_datetime(data["end"], current_user, client_timezone_name())
-        start, end = _apply_overnight(start, end)
+        start, end = apply_overnight(start, end)
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
     if not duration_ok(start, end):

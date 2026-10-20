@@ -21,7 +21,6 @@ RATE_LIMIT_MAX = 10
 
 
 TITLE_MAX_LEN = 140
-MAX_EVENT_DURATION_HOURS = 24
 
 
 def pending_count():
@@ -85,17 +84,6 @@ def safe_redirect_target(default_endpoint="main.calendar"):
     return nxt
 
 
-def guess_image_mimetype(filename, fallback="image/jpeg"):
-    ext = filename.rsplit(".", 1)[-1].lower() if filename else ""
-    return {
-        "png": "image/png",
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "gif": "image/gif",
-        "webp": "image/webp",
-    }.get(ext, fallback)
-
-
 def remove_legacy_avatar_file(relative_path):
     if not relative_path:
         return
@@ -132,14 +120,6 @@ def sync_bootstrap_admins():
             changed = True
     if changed:
         db.session.commit()
-
-
-def admin_count(organization_id=None):
-    """Число администраторов (платформа или организация)."""
-    q = User.query.filter_by(role="admin")
-    if organization_id is not None:
-        q = q.filter_by(organization_id=organization_id)
-    return q.count()
 
 
 def platform_admin_count():
@@ -202,13 +182,6 @@ def meeting_user_choices(extra_user_id=None):
         if user is not None:
             choices.insert(0, (user.id, f"{user.display_name} (не в друзьях)"))
     return choices
-
-
-# совместимость со старыми импортами
-get_colleague = get_friend
-colleagues_query = friends_query
-valid_colleague_ids = valid_friend_ids
-ensure_colleague = ensure_friend
 
 
 def validate_avatar_image(data):

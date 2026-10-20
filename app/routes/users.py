@@ -1,4 +1,4 @@
-from flask import render_template, abort, request, jsonify, redirect, url_for, flash
+from flask import render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from app import db
@@ -201,19 +201,6 @@ def free_time():
         slots=slots,
         pending_count=pending_count(),
     )
-
-
-@bp.route("/api/free-time/<int:user_id>")
-@login_required
-def api_free_time(user_id):
-    ensure_friend(user_id)
-    return jsonify({
-        "ok": True,
-        "slots": mutual_free_slots(
-            current_user.id, user_id, viewer=current_user,
-            client_tz_name=client_timezone_name(),
-        ),
-    })
 
 
 @bp.route("/profile")

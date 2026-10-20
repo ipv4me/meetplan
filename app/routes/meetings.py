@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
@@ -12,7 +12,7 @@ from app.helpers import (
     pending_count,
     meeting_user_choices,
     create_meeting_event,
-    valid_colleague_ids,
+    valid_friend_ids,
     REQUESTS_PER_PAGE,
     client_timezone_name,
 )
@@ -24,16 +24,10 @@ from app.time_utils import (
     utcnow,
     effective_timezone,
     duration_ok,
+    apply_overnight,
 )
 from app.services.scheduling import find_conflicts
 from app.routes import bp
-
-
-def _apply_overnight(start, end):
-    """Если конец ≤ начала — считаем ночной слот (+1 день)."""
-    if end <= start:
-        end = end + timedelta(days=1)
-    return start, end
 
 
 def _render_meeting_form(form, title, exclude_event_id=None, force_form=False):
@@ -75,7 +69,7 @@ def new_meeting():
         if form.to_user.data == current_user.id:
             flash("Нельзя назначить встречу самому себе.", "danger")
             return redirect(url_for("main.new_meeting"))
-        if form.to_user.data not in valid_colleague_ids():
+        if form.to_user.data not in valid_friend_ids():
             flash("Выберите друга из списка.", "danger")
             return redirect(url_for("main.new_meeting"))
         start, end = combine_user_meeting(
@@ -147,7 +141,7 @@ def edit_meeting(event_id):
         )
         participant_unchanged = form.to_user.data == old_to
         schedule_changed = not (times_unchanged and participant_unchanged)
-        friend_ids = valid_colleague_ids()
+        friend_ids = valid_friend_ids()
         if schedule_changed and form.to_user.data not in friend_ids:
             flash("Чтобы изменить время или участника, человек должен быть в друзьях.", "danger")
             return _render_meeting_form(
@@ -194,7 +188,7 @@ def api_check_conflicts():
         to_user = int(data["to_user"])
         start = parse_client_datetime(data["start"], current_user, client_timezone_name())
         end = parse_client_datetime(data["end"], current_user, client_timezone_name())
-        start, end = _apply_overnight(start, end)
+        start, end = apply_overnight(start, end)
         exclude = data.get("exclude_event_id")
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "Некорректные данные"}), 400
@@ -202,7 +196,7 @@ def api_check_conflicts():
         return jsonify({"ok": False, "error": "Некорректный интервал"}), 400
     if to_user == current_user.id:
         return jsonify({"ok": False, "error": "Нельзя назначить встречу самому себе"}), 400
-    if to_user not in valid_colleague_ids():
+    if to_user not in valid_friend_ids():
         return jsonify({"ok": False, "error": "Пользователь не в списке друзей"}), 400
     conflicts = find_conflicts(
         [current_user.id, to_user], start, end,
@@ -278,8 +272,6 @@ def requests_page():
 @bp.route("/api/requests/<int:req_id>/<action>", methods=["POST"])
 @login_required
 def api_request_action(req_id, action):
-    from app.utils import STATUS_REJECTED
-
     req = db.session.get(MeetingRequest, req_id)
     if req is None or req.to_user_id != current_user.id:
         abort(404)

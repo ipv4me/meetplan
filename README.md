@@ -1,92 +1,91 @@
 # MeetPlan
 
-Информационная система планирования и согласования встреч пользователей
-с календарным интерфейсом (дипломный проект).
+<p align="center">
+  <strong>Планирование и согласование встреч с общим календарём</strong><br>
+  Дипломный веб‑проект · Flask · FullCalendar · Bootstrap 5
+</p>
 
-**Стек:** Python · Flask · SQLAlchemy · SQLite/PostgreSQL · Bootstrap 5 · FullCalendar.js · jQuery
+<p align="center">
+  <a href="https://meetplan-sei9.onrender.com">🚀 Демо</a> ·
+  <a href="#быстрый-старт">Быстрый старт</a> ·
+  <a href="#возможности">Возможности</a> ·
+  <a href="#деплой">Деплой</a>
+</p>
+
+---
+
+**MeetPlan** — информационная система для назначения встреч между пользователями: личный календарь, задачи, друзья, согласование приглашений и поиск общих свободных слотов.
+
+| | |
+|---|---|
+| **Стек** | Python 3 · Flask · SQLAlchemy · Alembic · PostgreSQL / SQLite |
+| **UI** | Bootstrap 5 · FullCalendar.js · jQuery |
+| **Деплой** | Render + Neon · Gunicorn · Docker |
 
 ## Возможности
 
-- Регистрация и авторизация
-- Личный календарь (день / неделя / месяц / список), перетаскивание личных событий
-- Задачи «Мои дела» с датой/временем в календаре и редактированием
-- Встречи с согласованием, проверкой конфликтов, отменой обоими участниками
-- Просмотр календаря коллег, поиск общих свободных слотов
-- Администрирование (назначение админов через `ADMIN_EMAILS`)
-- Адаптивный UI, тёмная тема, CSRF-защита AJAX
+- **Календарь** — день / неделя / месяц / список; перетаскивание личных событий; клик по слоту создаёт событие
+- **Встречи** — приглашения, подтверждение / отклонение, отмена обоими участниками, проверка конфликтов
+- **Друзья** — поиск, заявки, пригласительная ссылка, просмотр календаря друга
+- **Приватность** — скрытие деталей календаря глобально или для отдельного друга
+- **Мои дела** — задачи с датой и временем, синхронизация с календарём
+- **Свободное время** — общие свободные окна для встречи с другом
+- **Профиль и настройки** — аватар, часовой пояс, тёмная тема, браузерные уведомления
+- **Админка** — роли и сводная статистика (`ADMIN_EMAILS`)
+- **Безопасность** — CSRF, rate limit на вход, ProxyFix / HTTPS в production
 
 ## Быстрый старт
 
 ```bash
+git clone https://github.com/ipv4me/meetplan.git
 cd meetplan
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # задайте SECRET_KEY и ADMIN_EMAILS
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env   # SECRET_KEY, ADMIN_EMAILS
 python run.py
 ```
 
-Открыть: http://127.0.0.1:5001
+Откройте [http://127.0.0.1:5001](http://127.0.0.1:5001).
+
+```bash
+pytest tests/ -q   # 50+ регрессионных тестов
+```
 
 ## Переменные окружения
 
 | Переменная | Описание |
 |------------|----------|
-| `SECRET_KEY` | Ключ сессий (обязателен в production) |
-| `ADMIN_EMAILS` | Email владельца, всегда admin |
-| `DATABASE_URL` | PostgreSQL или SQLite |
-| `FLASK_ENV` | `production` на сервере |
-| `FLASK_DEBUG` | `0` на сервере, `1` локально |
-| `PORT` | Порт (по умолчанию 5001) |
-| `DEFAULT_USER_TIMEZONE` | Пояс новых пользователей (по умолчанию `Europe/Moscow`) |
-| `FLASK_APP` | `run.py` — для `flask db upgrade` |
+| `SECRET_KEY` | Ключ сессий (**обязателен** в production) |
+| `DATABASE_URL` | PostgreSQL (Neon) или SQLite (**обязателен** в production) |
+| `ADMIN_EMAILS` | Email владельца / админов через запятую |
+| `FLASK_ENV` | `production` на сервере (Procfile выставляет сам) |
+| `FLASK_DEBUG` | `1` локально, `0` на сервере |
+| `PORT` | Порт (по умолчанию `5001`) |
+| `DEFAULT_USER_TIMEZONE` | Пояс новых пользователей (`Europe/Moscow`) |
+| `FLASK_APP` | `run.py` для миграций |
 
-## Деплой на Render + Neon
+Пример: [`.env.example`](.env.example).
+
+## Деплой
+
+### Render + Neon
 
 1. **Web Service** → Build: `pip install -r requirements.txt`  
-   **Start Command:** `gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app`  
-   (не `gunicorn run:app` — иначе возможен сбой порта / entrypoint)
-2. **Environment** (Render → Environment):
-   - `SECRET_KEY` — случайная строка
-   - `ADMIN_EMAILS` — ваш email
-   - `FLASK_ENV` = `production`
-   - `DATABASE_URL` — строка подключения Neon (с `?sslmode=require`)
-   - `FLASK_APP` = `run.py`
-3. **Release Command** (Procfile): `FLASK_APP=run.py flask db upgrade`
-4. Postgres на Render **не нужен**, если используете Neon.
+   Start: `gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app`
+2. **Environment:** `SECRET_KEY`, `ADMIN_EMAILS`, `DATABASE_URL` (Neon, `?sslmode=require`), `FLASK_APP=run.py`
+3. **Release** (Procfile): `flask db upgrade`
+4. Отдельный Postgres на Render не нужен, если БД в Neon
 
-Локальные тесты: `pip install -r requirements-dev.txt && pytest`
-
-При первом деплое пустая БД получает таблицы через `create_all` + `ensure_schema`; дальше схему держат Alembic-миграции.
-
-## Production
-
-```bash
-gunicorn -w 2 -b 0.0.0.0:5001 wsgi:app
-```
-
-Или через Docker:
+### Docker
 
 ```bash
 docker build -t meetplan .
-docker run -p 5001:5001 -e SECRET_KEY=... -e ADMIN_EMAILS=you@mail.com meetplan
-```
-
-## Миграции БД
-
-```bash
-export FLASK_APP=run.py
-flask db init          # один раз
-flask db migrate -m "описание"
-flask db upgrade
-```
-
-При первом запуске также работает `ensure_schema()` для совместимости со старыми БД.
-
-## Тесты
-
-```bash
-pytest tests/ -q
+docker run -p 5001:5001 \
+  -e SECRET_KEY=... \
+  -e ADMIN_EMAILS=you@mail.com \
+  -e DATABASE_URL=... \
+  meetplan
 ```
 
 ## Структура
@@ -94,18 +93,17 @@ pytest tests/ -q
 ```
 meetplan/
 ├── app/
-│   ├── routes/          # auth, calendar, meetings, tasks, users, admin, …
-│   ├── services/        # scheduling (конфликты, свободные слоты)
-│   ├── templates/
-│   ├── static/
-│   ├── models.py
-│   ├── helpers.py
-│   └── time_utils.py
-├── migrations/          # Flask-Migrate / Alembic
+│   ├── routes/           # auth, calendar, meetings, tasks, users, admin…
+│   ├── services/         # конфликты и свободные слоты
+│   ├── templates/ · static/
+│   ├── models.py · forms.py · helpers.py
+│   ├── friends_service.py · time_utils.py · utils.py
+├── migrations/           # Alembic
 ├── tests/
-├── wsgi.py
-├── run.py
-├── Procfile
-├── Dockerfile
+├── wsgi.py · run.py · Procfile · Dockerfile
 └── config.py
 ```
+
+## Лицензия
+
+Учебный дипломный проект. Использование кода — по согласованию с автором.

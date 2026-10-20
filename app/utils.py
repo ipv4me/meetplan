@@ -1,7 +1,5 @@
 """Вспомогательные функции."""
 
-from datetime import datetime
-
 from sqlalchemy.orm import joinedload
 
 from app import db
@@ -237,11 +235,6 @@ def _to_fc_busy(ev):
             "accent": border,
         },
     }
-
-
-def combine(date_value, time_value):
-    """Объединяет date и time в datetime."""
-    return datetime.combine(date_value, time_value)
 
 
 def ru_plural(n, one, few, many):

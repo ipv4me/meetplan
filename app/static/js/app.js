@@ -25,7 +25,7 @@ function syncCalendar() {
 }
 
 function initSubmitGuards() {
-  document.querySelectorAll("form[method='post'], form[method='POST'], form.meeting-form, form.widget-form").forEach(function (form) {
+  document.querySelectorAll("form[method='post'], form[method='POST'], form.meeting-form").forEach(function (form) {
     form.addEventListener("submit", function () {
       const btn = form.querySelector('[type="submit"]');
       if (btn && !btn.disabled) {
@@ -220,17 +220,9 @@ function addOneHour(timeStr) {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-function applyEndTimeFromStart(form, startSelector, endHiddenId) {
-  const start = form.querySelector(startSelector);
-  const endHidden = document.getElementById(endHiddenId);
-  if (start && start.value && endHidden) {
-    endHidden.value = addOneHour(start.value);
-  }
-}
-
 /* ---------- Виджеты «Создание встречи» ---------- */
 function initWidgetMeetingForms() {
-  document.querySelectorAll(".widget-form, form.meeting-form").forEach(function (form) {
+  document.querySelectorAll("form.meeting-form").forEach(function (form) {
     const start = form.querySelector('[name="start_time"]');
     const end = form.querySelector('[name="end_time"]');
     if (start && end) {
@@ -714,7 +706,6 @@ function initCalendar(el) {
     eventContent: renderEventContent,
     eventDidMount: function (info) {
       if (!info.view.type.startsWith("list")) return;
-      info.el.classList.add("list-ev-row");
       const accent = info.event.extendedProps.accent || info.event.borderColor || "#3b82f6";
       info.el.style.setProperty("--ev-accent", accent);
     },
@@ -1221,8 +1212,8 @@ function initRequestsTabs() {
 
 /* ---------- Проверка конфликтов (форма встречи и виджеты) ---------- */
 function initMeetingConflictCheck() {
-  document.querySelectorAll("form.meeting-form, form.widget-form").forEach(function (form) {
-    const warn = form.querySelector("#conflictWarn") || form.querySelector(".widget-conflict-warn");
+  document.querySelectorAll("form.meeting-form").forEach(function (form) {
+    const warn = form.querySelector("#conflictWarn");
     const toUser = form.querySelector('[name="to_user"]');
     const date = form.querySelector('[name="date"]');
     const start = form.querySelector('[name="start_time"]');
@@ -1257,5 +1248,3 @@ function initMeetingConflictCheck() {
     if (form.classList.contains("meeting-form")) check();
   });
 }
-
-/* initMobileMeetingWidget merged into initWidgetMeetingForms */
